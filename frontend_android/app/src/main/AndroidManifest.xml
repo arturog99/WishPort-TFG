@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -10,18 +12,19 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.WishPort">
+        android:theme="@style/Theme.WishPort"
+        android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".Pantalla_Reservas"
+            android:name=".ui.ReservasActivity"
             android:exported="false" />
 
         <activity
-            android:name=".Pantalla_Deportes"
+            android:name=".ui.PistasActivity"
             android:exported="false" />
 
         <activity
-            android:name=".Pantalla_Login"
+            android:name=".ui.LoginActivity"
             android:exported="true">
 
             <intent-filter>

@@ -1,4 +1,4 @@
-package com.example.wishport;
+package com.wishport.frontend.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -7,7 +7,9 @@ import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-public class Pantalla_Login extends AppCompatActivity {
+import com.wishport.frontend.R;
+
+public class LoginActivity extends AppCompatActivity {
 
     Button btnLogin;
 
@@ -21,7 +23,7 @@ public class Pantalla_Login extends AppCompatActivity {
         btnLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(Pantalla_Login.this, Pantalla_Deportes.class);
+                Intent intent = new Intent(LoginActivity.this, PistasActivity.class);
                 startActivity(intent);
             }
         });

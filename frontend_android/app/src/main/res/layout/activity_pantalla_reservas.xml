@@ -6,7 +6,15 @@
     android:layout_height="match_parent">
 
     <TextView
-        android:text="Pantalla de Reserva (vacía)"
+        android:id="@+id/textoResultadoApi"
+        android:text="Cargando datos..."
+        android:textSize="18sp"
+        android:padding="16dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:text="Pantalla de Reserva"
         android:textSize="24sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
