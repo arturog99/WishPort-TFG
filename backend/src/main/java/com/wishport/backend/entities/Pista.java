@@ -9,6 +9,8 @@ package com.wishport.backend.entities;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 /**
  *
@@ -36,6 +38,7 @@ public class Pista implements Serializable {
     private String fotoUrl;
     @Column(name = "estado")
     private String estado;
+    @JsonIgnore
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "idPista", fetch = FetchType.EAGER)
     private List<Reserva> reservasList;
 
