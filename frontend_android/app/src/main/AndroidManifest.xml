@@ -16,6 +16,14 @@
         android:usesCleartextTraffic="true">
 
         <activity
+            android:name=".ui.RegistroActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.DetallePistaActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.ReservasActivity"
             android:exported="false" />
 

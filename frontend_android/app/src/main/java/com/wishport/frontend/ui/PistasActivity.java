@@ -2,13 +2,14 @@ package com.wishport.frontend.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.wishport.frontend.R;
+import com.wishport.frontend.adapters.PistaAdapter;
 import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.models.Pista;
 
@@ -22,23 +23,19 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class PistasActivity extends AppCompatActivity {
 
-    Button futbol, baloncesto, tenis, padel, voleibol;
-    
-    // 1. Variable para guardar el resultado de la API
-    String textoDeLaApi = "Cargando datos..."; 
+    private RecyclerView recyclerViewPistas;
+    private PistaAdapter pistaAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pantalla_deportes);
 
-        futbol = findViewById(R.id.btnFutbol);
-        baloncesto = findViewById(R.id.btnBaloncesto);
-        tenis = findViewById(R.id.btnTenis);
-        padel = findViewById(R.id.btnPadel);
-        voleibol = findViewById(R.id.btnVoleibol);
+        // 1. Configurar RecyclerView
+        recyclerViewPistas = findViewById(R.id.recyclerViewPistas);
+        recyclerViewPistas.setLayoutManager(new LinearLayoutManager(this));
 
-        // --- CONFIGURACIÓN RETROFIT ---
+        // 2. Configurar Retrofit
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:8080/")
                 .addConverterFactory(GsonConverterFactory.create())
@@ -46,39 +43,36 @@ public class PistasActivity extends AppCompatActivity {
 
         ApiService apiService = retrofit.create(ApiService.class);
 
+        // 3. Obtener datos del backend
         apiService.obtenerPistas().enqueue(new Callback<List<Pista>>() {
             @Override
             public void onResponse(Call<List<Pista>> call, Response<List<Pista>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     List<Pista> listaPistas = response.body();
-                    if (!listaPistas.isEmpty()) {
-                        textoDeLaApi = "¡Conectado a MySQL! Primera pista: " + listaPistas.get(0).getNombre();
-                    }
+
+                    // 4. Crear adapter y asignarlo al RecyclerView
+                    pistaAdapter = new PistaAdapter(listaPistas);
+                    recyclerViewPistas.setAdapter(pistaAdapter);
+
+                    // 5. Configurar click listener para abrir detalle
+                    pistaAdapter.setOnItemClickListener(pista -> {
+                        Intent intent = new Intent(PistasActivity.this, DetallePistaActivity.class);
+                        intent.putExtra(DetallePistaActivity.EXTRA_PISTA, pista);
+                        startActivity(intent);
+                    });
+                } else {
+                    Toast.makeText(PistasActivity.this,
+                            "Error al cargar pistas: " + response.code(),
+                            Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<Pista>> call, Throwable t) {
-                textoDeLaApi = "Error de conexión: " + t.getMessage();
+                Toast.makeText(PistasActivity.this,
+                        "Error de conexión: " + t.getMessage(),
+                        Toast.LENGTH_LONG).show();
             }
         });
-
-        View.OnClickListener listener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(PistasActivity.this, ReservasActivity.class);
-                
-                // 3. METEMOS EL TEXTO EN EL INTENT
-                intent.putExtra("DATOS_DEL_BACKEND", textoDeLaApi);
-                
-                startActivity(intent);
-            }
-        };
-
-        futbol.setOnClickListener(listener);
-        baloncesto.setOnClickListener(listener);
-        tenis.setOnClickListener(listener);
-        padel.setOnClickListener(listener);
-        voleibol.setOnClickListener(listener);
     }
 }

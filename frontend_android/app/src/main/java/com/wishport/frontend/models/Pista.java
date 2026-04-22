@@ -1,9 +1,11 @@
 package com.wishport.frontend.models;
 
+import java.io.Serializable;
+
 /**
  * Clase que representa el modelo de una Pista (entidad del Backend).
  */
-public class Pista {
+public class Pista implements Serializable {
     private int idPista;
     private String nombre;
     private String deporte;
