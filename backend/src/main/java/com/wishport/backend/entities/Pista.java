@@ -38,7 +38,7 @@ public class Pista implements Serializable {
     @Column(name = "estado")
     private String estado;
     @JsonIgnore
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idPista", fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idPista", fetch = FetchType.LAZY)
     private List<Reserva> reservasList;
 
     public Pista() {

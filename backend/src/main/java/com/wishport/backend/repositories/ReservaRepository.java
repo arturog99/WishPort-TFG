@@ -25,4 +25,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
                                         @Param("fecha") Date fecha,
                                         @Param("horaInicio") Date horaInicio,
                                         @Param("horaFin") Date horaFin);
+
+    // Cuenta las reservas activas de un usuario
+    long countByIdUsuario_IdUsuarioAndEstadoReserva(Integer idUsuario, String estadoReserva);
+
+    // Busca todas las reservas de un usuario específico
+    List<Reserva> findByIdUsuario_IdUsuario(Integer idUsuario);
 }

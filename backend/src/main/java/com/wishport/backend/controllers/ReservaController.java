@@ -1,4 +1,6 @@
+
 package com.wishport.backend.controllers;
+
 
 import com.wishport.backend.entities.Reserva;
 
@@ -32,6 +34,12 @@ public class ReservaController {
         return reservaRepository.findAll();
     }
 
+    // GET reservas por usuario
+    @GetMapping("/usuario/{idUsuario}")
+    public List<Reserva> obtenerReservasPorUsuario(@PathVariable Integer idUsuario) {
+        return reservaRepository.findByIdUsuario_IdUsuario(idUsuario);
+    }
+
     // GET reservas por pista y fecha (para que el frontend bloquee botones)
     @GetMapping("/pista/{idPista}/fecha/{fecha}")
     public List<Reserva> obtenerReservasPorPistaYFecha(
@@ -40,12 +48,24 @@ public class ReservaController {
         return reservaRepository.findByPistaAndFecha(idPista, fecha);
     }
 
-    // POST crear reserva (con validación de duplicados)
+    // POST crear reserva (con validacion de duplicados)
     @PostMapping
     @Transactional
     public ResponseEntity<?> crearReserva(@RequestBody Reserva reserva) {
         logger.info("=== NUEVA RESERVA ===");
-        logger.info("Recibida raw - horaInicio: {}", reserva.getHoraInicio());
+
+        // Suponemos que el lÃƒÂ­mite son 2 reservas "activas"
+        long activas = reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(
+                reserva.getIdUsuario().getIdUsuario(),
+                "activa"
+        );
+
+        if (activas >= 2) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "LIMITE_ALCANZADO");
+            error.put("mensaje", "Ya tienes 2 reservas activas. Juega tus partidos para poder reservar mÃƒÂ¡s.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+        }
 
         // Validar que no exista una reserva solapada
         List<Reserva> reservasExistentes = reservaRepository.findReservasSolapadas(
@@ -59,15 +79,34 @@ public class ReservaController {
             // Ya existe una reserva para este horario - devolver 409 CONFLICT
             Map<String, String> error = new HashMap<>();
             error.put("error", "HORARIO_OCUPADO");
-            error.put("mensaje", "Este horario ya está reservado");
+            error.put("mensaje", "Este horario ya estÃƒÂ¡ reservado");
             return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
         }
 
+        // Generar código QR único (ej: RESERVA-123-1714483923)
+        String codigoQR = "RESERVA-" + reserva.getIdPista().getIdPista() + "-" +
+                reserva.getIdUsuario().getIdUsuario() + "-" +
+                System.currentTimeMillis();
+        reserva.setCodigoQr(codigoQR);
+
         // Guardar la nueva reserva
+        reserva.setEstadoReserva("activa");
         Reserva nuevaReserva = reservaRepository.save(reserva);
 
-        logger.info("Guardada - horaInicio: {}", nuevaReserva.getHoraInicio());
+        // Ã°Å¸Å¸Â¢ EL CAMBIO: Devolvemos la entidad original, igual que hacÃƒÂ©is en los GET
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);   }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);
+    // DELETE eliminar reserva por ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarReserva(@PathVariable Integer id) {
+        if (!reservaRepository.existsById(id)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "RESERVA_NO_ENCONTRADA");
+            error.put("mensaje", "La reserva no existe");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+        reservaRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
+
