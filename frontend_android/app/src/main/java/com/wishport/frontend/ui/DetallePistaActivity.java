@@ -533,8 +533,7 @@ public class DetallePistaActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<Reserva> call, Response<Reserva> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    reservasExistentes.add(response.body());
-                    actualizarHorariosDisponibles();
+                    cargarReservasExistentes();
                     Toast.makeText(DetallePistaActivity.this, "¡Reserva creada!", Toast.LENGTH_SHORT).show();
                 } else if (response.code() == 409) {
                     // El backend dice que el horario está ocupado
@@ -543,6 +542,13 @@ public class DetallePistaActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                     // Recargar reservas para actualizar la UI
                     cargarReservasExistentes();
+
+                } else if (response.code() == 403) {
+                        Toast.makeText(DetallePistaActivity.this,
+                                "¡Límite alcanzado! No puedes tener más de 2 reservas activas.",
+                                Toast.LENGTH_LONG).show();
+
+
                 } else {
                     Toast.makeText(DetallePistaActivity.this,
                             "Error al crear reserva: " + response.code(),

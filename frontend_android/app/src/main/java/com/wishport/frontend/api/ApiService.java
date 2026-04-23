@@ -12,6 +12,7 @@ import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
@@ -26,6 +27,9 @@ public interface ApiService {
     // --- ENDPOINTS RESERVAS ---
     @GET("api/reservas")
     Call<List<Reserva>> obtenerReservas();
+
+    @GET("api/reservas/usuario/{idUsuario}")
+    Call<List<Reserva>> obtenerReservasPorUsuario(@Path("idUsuario") int idUsuario);
 
     @GET("api/reservas/disponibilidad")
     Call<Map<String, Object>> verificarDisponibilidad(
@@ -43,6 +47,9 @@ public interface ApiService {
 
     @POST("api/reservas")
     Call<Reserva> crearReserva(@Body Reserva reserva);
+
+    @DELETE("api/reservas/{idReserva}")
+    Call<Void> cancelarReserva(@Path("idReserva") int idReserva);
 
     // --- ENDPOINTS USUARIOS ---
     @GET("api/usuarios")
