@@ -7,6 +7,9 @@ package com.wishport.backend.entities;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
+
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 /**
@@ -36,7 +39,11 @@ public class Usuario implements Serializable {
     private String password;
     @Column(name = "rol")
     private String rol;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idUsuario", fetch = FetchType.EAGER)
+
+    //@JsonIgnore. Evita que al devolver el usuario a la app, intente pintar sus 100 reservas
+    //(y que cada reserva intente pintar al usuario de nuevo), cortando el bucle infinito.
+    @JsonIgnore
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idUsuario")
     private List<Reserva> reservasList;
 
     public Usuario() {
@@ -123,7 +130,7 @@ public class Usuario implements Serializable {
 
     @Override
     public String toString() {
-        return "com.arturo.telegrambot.Usuarios[ idUsuario=" + idUsuario + " ]";
+        return "Usuario[ idUsuario=" + idUsuario + " ]";
     }
     
 }
