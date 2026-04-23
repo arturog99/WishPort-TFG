@@ -1,11 +1,12 @@
 package com.wishport.frontend.models;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
  * Clase que representa el modelo de una Reserva (entidad del Backend).
  */
-public class Reserva {
+public class Reserva implements Serializable {
     private Integer idReserva;
     private Date fecha;
     private Date horaInicio;

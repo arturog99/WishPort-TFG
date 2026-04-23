@@ -1,9 +1,11 @@
 package com.wishport.frontend.models;
 
+import java.io.Serializable;
+
 /**
  * Clase que representa el modelo de un Usuario (entidad del Backend).
  */
-public class Usuario {
+public class Usuario implements Serializable {
     private Integer idUsuario;
     private String nombre;
     private String email;
