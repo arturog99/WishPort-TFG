@@ -54,7 +54,7 @@ public class ReservaController {
     public ResponseEntity<?> crearReserva(@RequestBody Reserva reserva) {
         logger.info("=== NUEVA RESERVA ===");
 
-        // Suponemos que el lÃƒÂ­mite son 2 reservas "activas"
+        // Suponemos que el limite son 2 reservas "activas"
         long activas = reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(
                 reserva.getIdUsuario().getIdUsuario(),
                 "activa"
@@ -93,7 +93,7 @@ public class ReservaController {
         reserva.setEstadoReserva("activa");
         Reserva nuevaReserva = reservaRepository.save(reserva);
 
-        // Ã°Å¸Å¸Â¢ EL CAMBIO: Devolvemos la entidad original, igual que hacÃƒÂ©is en los GET
+        // Ã°Å¸Å¸Â¢ EL CAMBIO: Devolvemos la entidad original
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);   }
 
     // DELETE eliminar reserva por ID
