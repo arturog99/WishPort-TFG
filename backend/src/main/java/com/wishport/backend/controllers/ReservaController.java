@@ -93,7 +93,7 @@ public class ReservaController {
         reserva.setEstadoReserva("activa");
         Reserva nuevaReserva = reservaRepository.save(reserva);
 
-        // Ã°Å¸Å¸Â¢ EL CAMBIO: Devolvemos la entidad original
+        // Devolvemos la entidad original
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);   }
 
     // DELETE eliminar reserva por ID
