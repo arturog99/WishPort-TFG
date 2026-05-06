@@ -6,8 +6,8 @@ package com.wishport.backend.entities;
 
 import java.io.Serial;
 import java.io.Serializable;
-
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 import jakarta.persistence.*;
 
@@ -28,17 +28,14 @@ public class Reserva implements Serializable {
     @Column(name = "id_reserva")
     private Integer idReserva;
     @Basic(optional = false)
-    @Column(name = "fecha")
-    @Temporal(TemporalType.DATE)
-    private Date fecha;
+    @Column(name = "fecha", nullable = false)
+    private LocalDate fecha;
     @Basic(optional = false)
-    @Column(name = "hora_inicio")
-    @Temporal(TemporalType.TIME)
-    private Date horaInicio;
+    @Column(name = "hora_inicio", nullable = false)
+    private LocalTime horaInicio;
     @Basic(optional = false)
-    @Column(name = "hora_fin")
-    @Temporal(TemporalType.TIME)
-    private Date horaFin;
+    @Column(name = "hora_fin", nullable = false)
+    private LocalTime horaFin;
     @Column(name = "codigo_qr")
     private String codigoQr;
     @Column(name = "estado_reserva")
@@ -57,7 +54,7 @@ public class Reserva implements Serializable {
         this.idReserva = idReserva;
     }
 
-    public Reserva(Integer idReserva, Date fecha, Date horaInicio, Date horaFin) {
+    public Reserva(Integer idReserva, LocalDate fecha, LocalTime horaInicio, LocalTime horaFin) {
         this.idReserva = idReserva;
         this.fecha = fecha;
         this.horaInicio = horaInicio;
@@ -72,27 +69,27 @@ public class Reserva implements Serializable {
         this.idReserva = idReserva;
     }
 
-    public Date getFecha() {
+    public LocalDate getFecha() {
         return fecha;
     }
 
-    public void setFecha(Date fecha) {
+    public void setFecha(LocalDate fecha) {
         this.fecha = fecha;
     }
 
-    public Date getHoraInicio() {
+    public LocalTime getHoraInicio() {
         return horaInicio;
     }
 
-    public void setHoraInicio(Date horaInicio) {
+    public void setHoraInicio(LocalTime horaInicio) {
         this.horaInicio = horaInicio;
     }
 
-    public Date getHoraFin() {
+    public LocalTime getHoraFin() {
         return horaFin;
     }
 
-    public void setHoraFin(Date horaFin) {
+    public void setHoraFin(LocalTime horaFin) {
         this.horaFin = horaFin;
     }
 

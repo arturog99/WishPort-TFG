@@ -1,12 +1,7 @@
-
 package com.wishport.backend.controllers;
 
-
 import com.wishport.backend.entities.Reserva;
-
 import com.wishport.backend.repositories.ReservaRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -14,7 +9,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +21,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/reservas")
 public class ReservaController {
-
-    private static final Logger logger = LoggerFactory.getLogger(ReservaController.class);
 
     @Autowired
     private ReservaRepository reservaRepository;
@@ -36,15 +33,38 @@ public class ReservaController {
 
     // GET reservas por usuario
     @GetMapping("/usuario/{idUsuario}")
+    @Transactional
     public List<Reserva> obtenerReservasPorUsuario(@PathVariable Integer idUsuario) {
-        return reservaRepository.findByIdUsuario_IdUsuario(idUsuario);
+        List<Reserva> reservas = reservaRepository.findByIdUsuario_IdUsuario(idUsuario);
+        ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("Europe/Madrid"));
+        boolean hayActualizaciones = false;
+
+        for (Reserva reserva : reservas) {
+            if ("activa".equals(reserva.getEstadoReserva())) {
+                ZonedDateTime finReserva = ZonedDateTime.of(
+                    reserva.getFecha(),
+                    reserva.getHoraFin(),
+                    ZoneId.of("Europe/Madrid")
+                );
+                if (finReserva.isBefore(ahora)) {
+                    reserva.setEstadoReserva("completada");
+                    hayActualizaciones = true;
+                }
+            }
+        }
+
+        if (hayActualizaciones) {
+            reservaRepository.saveAll(reservas);
+        }
+
+        return reservas;
     }
 
     // GET reservas por pista y fecha (para que el frontend bloquee botones)
     @GetMapping("/pista/{idPista}/fecha/{fecha}")
     public List<Reserva> obtenerReservasPorPistaYFecha(
             @PathVariable Integer idPista,
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date fecha) {
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
         return reservaRepository.findByPistaAndFecha(idPista, fecha);
     }
 
@@ -52,8 +72,6 @@ public class ReservaController {
     @PostMapping
     @Transactional
     public ResponseEntity<?> crearReserva(@RequestBody Reserva reserva) {
-        logger.info("=== NUEVA RESERVA ===");
-
         // Suponemos que el limite son 2 reservas "activas"
         long activas = reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(
                 reserva.getIdUsuario().getIdUsuario(),
