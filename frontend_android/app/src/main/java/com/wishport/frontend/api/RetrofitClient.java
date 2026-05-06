@@ -3,7 +3,8 @@ package com.wishport.frontend.api;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -13,15 +14,16 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 public class RetrofitClient {
 
-    private static final String BASE_URL = "http://10.0.2.2:8080/";
+    public static final String BASE_URL = "http://10.0.2.2:8080/";
     private static Retrofit retrofit = null;
     private static ApiService apiService = null;
 
     public static Retrofit getRetrofitInstance() {
         if (retrofit == null) {
-            // Crear Gson con el adapter personalizado para fechas
+            // Crear Gson con adapters para java.time
             Gson gson = new GsonBuilder()
-                    .registerTypeAdapter(Date.class, new DateTimeAdapter())
+                    .registerTypeAdapter(LocalDate.class, LocalDateTimeAdapter.LOCAL_DATE)
+                    .registerTypeAdapter(LocalTime.class, LocalDateTimeAdapter.LOCAL_TIME)
                     .create();
 
             retrofit = new Retrofit.Builder()
@@ -33,9 +35,6 @@ public class RetrofitClient {
     }
 
     public static ApiService getApiService() {
-        if (apiService == null) {
-            apiService = getRetrofitInstance().create(ApiService.class);
-        }
-        return apiService;
+        return getRetrofitInstance().create(ApiService.class);
     }
 }

@@ -11,9 +11,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.wishport.frontend.R;
 import com.wishport.frontend.models.Reserva;
 
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Adapter para conectar la lista de Reservas con el RecyclerView.
@@ -21,8 +20,8 @@ import java.util.Locale;
 public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaViewHolder> {
 
     private List<Reserva> listaReservas;
-    private SimpleDateFormat dateFormat;
-    private SimpleDateFormat timeFormat;
+    private DateTimeFormatter dateFormatter;
+    private DateTimeFormatter timeFormatter;
 
     public interface OnItemClickListener {
         void onItemClick(Reserva reserva);
@@ -36,8 +35,8 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
 
     public ReservaAdapter(List<Reserva> listaReservas) {
         this.listaReservas = listaReservas;
-        this.dateFormat = new SimpleDateFormat("dd/MM", Locale.getDefault());
-        this.timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        this.dateFormatter = DateTimeFormatter.ofPattern("dd/MM");
+        this.timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
     }
 
     @NonNull
@@ -55,8 +54,8 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
         String deporte = reserva.getIdPista() != null ? reserva.getIdPista().getDeporte() : "Pádel";
         holder.tvDeporte.setText(deporte);
 
-        String fecha = reserva.getFecha() != null ? dateFormat.format(reserva.getFecha()) : "24";
-        String hora = reserva.getHoraInicio() != null ? timeFormat.format(reserva.getHoraInicio()) : "18:00";
+        String fecha = reserva.getFecha() != null ? reserva.getFecha().format(dateFormatter) : "24";
+        String hora = reserva.getHoraInicio() != null ? reserva.getHoraInicio().format(timeFormatter) : "18:00";
         holder.tvInfoReserva.setText("Día " + fecha + " - " + hora + "h");
 
         holder.itemView.setOnClickListener(v -> {

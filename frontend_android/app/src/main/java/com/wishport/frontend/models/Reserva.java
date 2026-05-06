@@ -1,16 +1,17 @@
 package com.wishport.frontend.models;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 /**
  * Clase que representa el modelo de una Reserva (entidad del Backend).
  */
 public class Reserva implements Serializable {
     private Integer idReserva;
-    private Date fecha;
-    private Date horaInicio;
-    private Date horaFin;
+    private LocalDate fecha;
+    private LocalTime horaInicio;
+    private LocalTime horaFin;
     private String codigoQr;
     private String estadoReserva;
     private Pista idPista;
@@ -19,7 +20,7 @@ public class Reserva implements Serializable {
     public Reserva() {
     }
 
-    public Reserva(Integer idReserva, Date fecha, Date horaInicio, Date horaFin) {
+    public Reserva(Integer idReserva, LocalDate fecha, LocalTime horaInicio, LocalTime horaFin) {
         this.idReserva = idReserva;
         this.fecha = fecha;
         this.horaInicio = horaInicio;
@@ -34,27 +35,27 @@ public class Reserva implements Serializable {
         this.idReserva = idReserva;
     }
 
-    public Date getFecha() {
+    public LocalDate getFecha() {
         return fecha;
     }
 
-    public void setFecha(Date fecha) {
+    public void setFecha(LocalDate fecha) {
         this.fecha = fecha;
     }
 
-    public Date getHoraInicio() {
+    public LocalTime getHoraInicio() {
         return horaInicio;
     }
 
-    public void setHoraInicio(Date horaInicio) {
+    public void setHoraInicio(LocalTime horaInicio) {
         this.horaInicio = horaInicio;
     }
 
-    public Date getHoraFin() {
+    public LocalTime getHoraFin() {
         return horaFin;
     }
 
-    public void setHoraFin(Date horaFin) {
+    public void setHoraFin(LocalTime horaFin) {
         this.horaFin = horaFin;
     }
 

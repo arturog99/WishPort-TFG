@@ -4,9 +4,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,7 +34,7 @@ public class ReservasActivity extends AppCompatActivity {
     private RecyclerView recyclerViewReservas;
     private ReservaAdapter reservaAdapter;
     private ProgressBar progressBar;
-    private TextView tvSinReservas;
+    private LinearLayout emptyStateLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
     private List<Reserva> listaReservas = new ArrayList<>();
 
@@ -43,7 +45,7 @@ public class ReservasActivity extends AppCompatActivity {
 
         recyclerViewReservas = findViewById(R.id.recyclerViewReservas);
         progressBar = findViewById(R.id.progressBar);
-        tvSinReservas = findViewById(R.id.tvSinReservas);
+        emptyStateLayout = findViewById(R.id.emptyStateLayout);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
 
         recyclerViewReservas.setLayoutManager(new LinearLayoutManager(this));
@@ -97,13 +99,7 @@ public class ReservasActivity extends AppCompatActivity {
 
                     Log.d("RESERVAS", "Reservas cargadas: " + listaReservas.size());
 
-                    if (listaReservas.isEmpty()) {
-                        tvSinReservas.setVisibility(View.VISIBLE);
-                        recyclerViewReservas.setVisibility(View.GONE);
-                    } else {
-                        tvSinReservas.setVisibility(View.GONE);
-                        recyclerViewReservas.setVisibility(View.VISIBLE);
-                    }
+                    mostrarEmptyState(listaReservas.isEmpty());
                 } else {
                     Log.e("RESERVAS", "Error en respuesta: " + response.errorBody());
                     Toast.makeText(ReservasActivity.this, "Error al cargar reservas: " + response.code(), Toast.LENGTH_SHORT).show();
@@ -118,5 +114,46 @@ public class ReservasActivity extends AppCompatActivity {
                 Toast.makeText(ReservasActivity.this, "Error de conexión: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void mostrarEmptyState(boolean mostrar) {
+        if (mostrar) {
+            recyclerViewReservas.setVisibility(View.GONE);
+            emptyStateLayout.setVisibility(View.VISIBLE);
+        } else {
+            recyclerViewReservas.setVisibility(View.VISIBLE);
+            emptyStateLayout.setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_logout) {
+            logout();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void logout() {
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.remove("idUsuario");
+        editor.remove("nombreUsuario");
+        editor.remove("emailUsuario");
+        editor.apply();
+
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
+                        Intent.FLAG_ACTIVITY_CLEAR_TASK | 
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }

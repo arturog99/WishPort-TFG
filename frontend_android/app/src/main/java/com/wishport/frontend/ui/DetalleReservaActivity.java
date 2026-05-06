@@ -24,8 +24,9 @@ import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Reserva;
 
-import java.text.SimpleDateFormat;
-import java.util.Locale;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -41,16 +42,16 @@ public class DetalleReservaActivity extends AppCompatActivity {
     private ProgressBar progressBar;
 
     private Reserva reserva;
-    private SimpleDateFormat dateFormat;
-    private SimpleDateFormat timeFormat;
+    private DateTimeFormatter dateFormatter;
+    private DateTimeFormatter timeFormatter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detalle_reserva);
 
-        dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-        timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
         initViews();
 
@@ -88,18 +89,64 @@ public class DetalleReservaActivity extends AppCompatActivity {
                 ? reserva.getIdPista().getNombre() : "Pista " + (reserva.getIdPista() != null ? reserva.getIdPista().getIdPista() : "1");
         tvPista.setText(pista);
 
-        String fecha = reserva.getFecha() != null ? dateFormat.format(reserva.getFecha()) : "N/A";
+        String fecha = reserva.getFecha() != null ? reserva.getFecha().format(dateFormatter) : "N/A";
         tvFecha.setText(fecha);
 
-        String horaInicio = reserva.getHoraInicio() != null ? timeFormat.format(reserva.getHoraInicio()) : "N/A";
-        String horaFin = reserva.getHoraFin() != null ? timeFormat.format(reserva.getHoraFin()) : "N/A";
+        String horaInicio = reserva.getHoraInicio() != null ? reserva.getHoraInicio().format(timeFormatter) : "N/A";
+        String horaFin = reserva.getHoraFin() != null ? reserva.getHoraFin().format(timeFormatter) : "N/A";
         tvHora.setText(horaInicio + " - " + horaFin);
 
+        // Actualizar la lógica de colores para incluir el nuevo estado
         String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "Activa";
         tvEstado.setText(estado);
-        tvEstado.setTextColor(estado.equalsIgnoreCase("activa") ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
+
+        // Color según estado
+        int colorEstado;
+        if (estado.equalsIgnoreCase("activa")) {
+            colorEstado = Color.parseColor("#4CAF50"); // Verde
+        } else if (estado.equalsIgnoreCase("completada") || estado.equalsIgnoreCase("finalizada")) {
+            colorEstado = Color.parseColor("#757575"); // Gris
+        } else {
+            colorEstado = Color.parseColor("#F44336"); // Rojo (cancelada)
+        }
+        tvEstado.setTextColor(colorEstado);
 
         tvIdReserva.setText("#" + reserva.getIdReserva());
+
+        // Verificar si la reserva ya pasó para deshabilitar cancelación
+        verificarYConfigurarBotonCancelar();
+    }
+
+    private void verificarYConfigurarBotonCancelar() {
+        String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "";
+
+        // Verificar si es una reserva pasada (estado completada/finalizada o fecha/hora ya pasó)
+        boolean esReservaPasada = estado.equalsIgnoreCase("completada")
+                || estado.equalsIgnoreCase("finalizada")
+                || esFechaHoraPasada();
+
+        if (esReservaPasada) {
+            btnCancelarReserva.setEnabled(false);
+            btnCancelarReserva.setAlpha(0.5f);
+            btnCancelarReserva.setText("Reserva Finalizada");
+        }
+    }
+
+    private boolean esFechaHoraPasada() {
+        if (reserva.getFecha() == null || reserva.getHoraFin() == null) {
+            return false;
+        }
+
+        ZoneId madrid = ZoneId.of("Europe/Madrid");
+        ZonedDateTime fechaHoraReserva = ZonedDateTime.of(
+                reserva.getFecha(),
+                reserva.getHoraFin(),
+                madrid
+        );
+
+        ZonedDateTime ahora = ZonedDateTime.now(madrid);
+
+        return fechaHoraReserva.isBefore(ahora);
     }
 
     private void generarCodigoQR() {
@@ -130,6 +177,17 @@ public class DetalleReservaActivity extends AppCompatActivity {
     }
 
     private void mostrarDialogoCancelar() {
+        // Verificar si la reserva ya pasó
+        String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "";
+        boolean esReservaPasada = estado.equalsIgnoreCase("completada")
+                || estado.equalsIgnoreCase("finalizada")
+                || esFechaHoraPasada();
+
+        if (esReservaPasada) {
+            Toast.makeText(this, "No puedes cancelar una reserva que ya ha finalizado", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         new AlertDialog.Builder(this)
                 .setTitle("Cancelar Reserva")
                 .setMessage("¿Estás seguro de que quieres cancelar esta reserva? Esta acción no se puede deshacer.")

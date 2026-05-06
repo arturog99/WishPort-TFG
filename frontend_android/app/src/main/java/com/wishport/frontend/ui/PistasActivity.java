@@ -1,7 +1,10 @@
 package com.wishport.frontend.ui;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -12,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.wishport.frontend.R;
 import com.wishport.frontend.adapters.PistaAdapter;
 import com.wishport.frontend.api.ApiService;
+import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Pista;
 
 import java.util.List;
@@ -19,8 +23,6 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class PistasActivity extends AppCompatActivity {
 
@@ -43,13 +45,8 @@ public class PistasActivity extends AppCompatActivity {
         recyclerViewPistas = findViewById(R.id.recyclerViewPistas);
         recyclerViewPistas.setLayoutManager(new LinearLayoutManager(this));
 
-        // 2. Configurar Retrofit
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8080/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        ApiService apiService = retrofit.create(ApiService.class);
+        // 2. Usar RetrofitClient centralizado (con adapters java.time)
+        ApiService apiService = RetrofitClient.getApiService();
 
         // 3. Obtener datos del backend
         apiService.obtenerPistas().enqueue(new Callback<List<Pista>>() {
@@ -82,5 +79,38 @@ public class PistasActivity extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_logout) {
+            logout();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void logout() {
+        // Borrar datos de sesión
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.remove("idUsuario");
+        editor.remove("nombreUsuario");
+        editor.remove("emailUsuario");
+        editor.apply();
+
+        // Ir a LoginActivity y limpiar stack
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
+                        Intent.FLAG_ACTIVITY_CLEAR_TASK | 
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }
