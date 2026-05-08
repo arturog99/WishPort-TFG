@@ -77,13 +77,20 @@ public class LoginActivity extends AppCompatActivity {
                     editor.putInt("idUsuario", usuarioLogueado.getIdUsuario());
                     editor.putString("nombreUsuario", usuarioLogueado.getNombre());
                     editor.putString("emailUsuario", usuarioLogueado.getEmail());
+                    editor.putString("rolUsuario", usuarioLogueado.getRol());
                     editor.apply();
 
                     Toast.makeText(LoginActivity.this,
                             "Bienvenido " + usuarioLogueado.getNombre(),
                             Toast.LENGTH_SHORT).show();
 
-                    Intent intent = new Intent(LoginActivity.this, PistasActivity.class);
+                    // Redirigir según el rol
+                    Intent intent;
+                    if ("ADMIN".equals(usuarioLogueado.getRol())) {
+                        intent = new Intent(LoginActivity.this, AdminActivity.class);
+                    } else {
+                        intent = new Intent(LoginActivity.this, PistasActivity.class);
+                    }
                     startActivity(intent);
                 } else {
                     Toast.makeText(LoginActivity.this,

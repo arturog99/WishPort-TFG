@@ -40,6 +40,9 @@ dependencies {
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
 
+    // ZXing para escaneo QR
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+
     // Retrofit
     implementation libs.retrofit
     implementation libs.retrofit.converter.gson

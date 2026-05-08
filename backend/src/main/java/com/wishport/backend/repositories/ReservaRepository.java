@@ -32,4 +32,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
 
     // Busca todas las reservas de un usuario específico
     List<Reserva> findByIdUsuario_IdUsuario(Integer idUsuario);
+
+    // Busca todas las reservas de una fecha específica (para panel de admin)
+    List<Reserva> findByFecha(LocalDate fecha);
 }

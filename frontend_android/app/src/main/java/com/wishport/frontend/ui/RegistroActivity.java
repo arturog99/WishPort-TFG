@@ -85,16 +85,20 @@ public class RegistroActivity extends AppCompatActivity {
                     Intent intent = new Intent(RegistroActivity.this, LoginActivity.class);
                     startActivity(intent);
                     finish();
-                } else if (response.code() == 500) {
-                    // Probablemente email duplicado
-                    Toast.makeText(RegistroActivity.this,
-                            "Este email ya está registrado. ¿Quieres iniciar sesión?",
-                            Toast.LENGTH_LONG).show();
                 } else {
-                    // Otro error
-                    Toast.makeText(RegistroActivity.this,
-                            "Error al registrar: " + response.code(),
-                            Toast.LENGTH_SHORT).show();
+                    // Mostrar mensaje de error del servidor
+                    String errorMsg = "Error al registrar (código: " + response.code() + ")";
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            if (!errorBody.isEmpty()) {
+                                errorMsg = errorBody;
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignorar error al leer el cuerpo
+                    }
+                    Toast.makeText(RegistroActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
 

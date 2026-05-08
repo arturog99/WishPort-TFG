@@ -39,6 +39,11 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
         this.timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
     }
 
+    public void actualizarLista(List<Reserva> nuevaLista) {
+        this.listaReservas = nuevaLista;
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public ReservaViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {

@@ -31,6 +31,13 @@ public class ReservaController {
         return reservaRepository.findAll();
     }
 
+    // GET reservas del día de hoy (para panel de administración)
+    @GetMapping("/hoy")
+    public List<Reserva> obtenerReservasDeHoy() {
+        LocalDate hoy = LocalDate.now();
+        return reservaRepository.findByFecha(hoy);
+    }
+
     // GET reservas por usuario
     @GetMapping("/usuario/{idUsuario}")
     @Transactional
