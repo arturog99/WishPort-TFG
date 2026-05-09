@@ -1,13 +1,11 @@
 package com.wishport.frontend.ui;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -23,13 +21,17 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA DE REGISTRO: Permite a los nuevos usuarios crear una cuenta.
+ * Incluye validaciones de seguridad para email y contraseña.
+ */
 public class RegistroActivity extends AppCompatActivity {
 
     private EditText etNombre, etEmail, etPassword, etTelefono;
     private Button btnRegistrar;
     private ProgressBar progressBar;
     
-    // Regla de contraseña: mínimo 8 caracteres, una letra y un número
+    // Regla de contraseña: mínimo 8 caracteres, debe contener al menos una letra y un número.
     private static final Pattern PASSWORD_PATTERN = 
             Pattern.compile("^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$");
 
@@ -40,6 +42,7 @@ public class RegistroActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_registro);
 
+        // Vincular componentes de la interfaz
         etNombre = findViewById(R.id.etNombre);
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPasswordRegistro);
@@ -49,22 +52,28 @@ public class RegistroActivity extends AppCompatActivity {
 
         apiService = RetrofitClient.getApiService();
 
-        btnRegistrar.setOnClickListener(v -> registrarUsuario());
+        btnRegistrar.setOnClickListener(v -> intentarRegistro());
     }
 
-    private void registrarUsuario() {
+    /**
+     * Valida los datos introducidos y los envía al servidor para crear la cuenta.
+     */
+    private void intentarRegistro() {
         String nombre = etNombre.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
         String telefono = etTelefono.getText().toString().trim();
 
-        if (!validarCampos(nombre, email, password, telefono)) {
+        // Ejecutar validaciones antes de llamar a la API
+        if (!validarFormulario(nombre, email, password, telefono)) {
             return;
         }
 
+        // Mostrar indicador de carga y bloquear botón
         progressBar.setVisibility(View.VISIBLE);
         btnRegistrar.setEnabled(false);
 
+        // Crear el objeto usuario (el ID lo generará la base de datos)
         Usuario nuevoUsuario = new Usuario(null, nombre, email, password, telefono);
 
         apiService.registrarUsuario(nuevoUsuario).enqueue(new Callback<Usuario>() {
@@ -74,10 +83,10 @@ public class RegistroActivity extends AppCompatActivity {
                 btnRegistrar.setEnabled(true);
 
                 if (response.isSuccessful()) {
-                    Toast.makeText(RegistroActivity.this, "Cuenta creada correctamente", Toast.LENGTH_SHORT).show();
-                    finish();
+                    Toast.makeText(RegistroActivity.this, "¡Cuenta creada! Ya puedes iniciar sesión.", Toast.LENGTH_SHORT).show();
+                    finish(); // Volver al Login
                 } else {
-                    Toast.makeText(RegistroActivity.this, "Error: El email ya está registrado", Toast.LENGTH_LONG).show();
+                    Toast.makeText(RegistroActivity.this, "Error: Este email ya está en uso.", Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -85,14 +94,17 @@ public class RegistroActivity extends AppCompatActivity {
             public void onFailure(Call<Usuario> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
                 btnRegistrar.setEnabled(true);
-                Toast.makeText(RegistroActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
+                Toast.makeText(RegistroActivity.this, "Error de conexión con el servidor", Toast.LENGTH_LONG).show();
             }
         });
     }
 
-    private boolean validarCampos(String nombre, String email, String password, String telefono) {
+    /**
+     * Comprueba que todos los campos cumplan con los requisitos de formato y seguridad.
+     */
+    private boolean validarFormulario(String nombre, String email, String password, String telefono) {
         if (nombre.isEmpty()) {
-            etNombre.setError("El nombre es obligatorio");
+            etNombre.setError("Escribe tu nombre completo");
             return false;
         }
         
@@ -102,12 +114,12 @@ public class RegistroActivity extends AppCompatActivity {
         }
         
         if (!PASSWORD_PATTERN.matcher(password).matches()) {
-            etPassword.setError("La contraseña debe tener al menos 8 caracteres, letras y números");
+            etPassword.setError("Mínimo 8 caracteres, con letras y números");
             return false;
         }
         
         if (telefono.length() < 9) {
-            etTelefono.setError("Introduce un teléfono válido");
+            etTelefono.setError("Introduce un número de teléfono válido");
             return false;
         }
         

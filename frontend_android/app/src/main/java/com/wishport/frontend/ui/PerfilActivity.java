@@ -19,11 +19,18 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA DE PERFIL: Permite al usuario consultar y modificar sus datos personales.
+ * Muestra información como nombre, email (solo lectura) y teléfono.
+ */
 public class PerfilActivity extends AppCompatActivity {
 
+    // Componentes de la interfaz
     private TextInputEditText etNombre, etEmail, etTelefono;
     private Button btnActualizar;
     private ProgressBar progressBar;
+    
+    // Herramientas de datos
     private ApiService apiService;
     private int idUsuario;
 
@@ -32,79 +39,106 @@ public class PerfilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_perfil);
 
+        // 1. Vincular los elementos del diseño XML con el código Java
+        vincularComponentes();
+
+        apiService = RetrofitClient.getApiService();
+
+        // 2. Carga inicial: Recuperamos los datos que ya tenemos guardados en el móvil (SharedPreferences)
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        idUsuario = prefs.getInt("idUsuario", -1);
+        String nombreActual = prefs.getString("nombreUsuario", "");
+        String emailActual = prefs.getString("emailUsuario", "");
+
+        if (idUsuario != -1) {
+            // Rellenamos los campos inmediatamente con la info local para una mejor UX
+            etNombre.setText(nombreActual);
+            etEmail.setText(emailActual);
+            
+            // 3. Carga en segundo plano: Pedimos los datos actualizados al servidor (como el teléfono)
+            obtenerDatosCompletosDelServidor();
+        } else {
+            Toast.makeText(this, "Sesión no válida. Por favor, inicia sesión de nuevo.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+
+        // 4. Configurar la acción al pulsar el botón de guardar cambios
+        btnActualizar.setOnClickListener(v -> intentarActualizarPerfil());
+    }
+
+    /** Conecta las variables Java con los IDs definidos en el XML (activity_perfil.xml) */
+    private void vincularComponentes() {
         etNombre = findViewById(R.id.etNombrePerfil);
         etEmail = findViewById(R.id.etEmailPerfil);
         etTelefono = findViewById(R.id.etTelefonoPerfil);
         btnActualizar = findViewById(R.id.btnActualizarPerfil);
         progressBar = findViewById(R.id.progressBarPerfil);
-
-        apiService = RetrofitClient.getApiService();
-
-        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-        idUsuario = prefs.getInt("idUsuario", -1);
-
-        if (idUsuario != -1) {
-            cargarDatosUsuario();
-        } else {
-            Toast.makeText(this, "Error: Sesión no encontrada", Toast.LENGTH_SHORT).show();
-            finish();
-        }
-
-        btnActualizar.setOnClickListener(v -> actualizarPerfil());
     }
 
-    private void cargarDatosUsuario() {
+    /** 
+     * Llama a la API para traer la información más reciente del usuario desde la base de datos.
+     * Esto nos permite obtener campos que no siempre guardamos localmente, como el teléfono.
+     */
+    private void obtenerDatosCompletosDelServidor() {
         progressBar.setVisibility(View.VISIBLE);
+        
         apiService.obtenerUsuarioPorId(idUsuario).enqueue(new Callback<Usuario>() {
             @Override
             public void onResponse(Call<Usuario> call, Response<Usuario> response) {
                 progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
-                    Usuario usuario = response.body();
-                    etNombre.setText(usuario.getNombre());
-                    etEmail.setText(usuario.getEmail());
-                    etTelefono.setText(usuario.getTelefono());
+                    Usuario user = response.body();
+                    etNombre.setText(user.getNombre());
+                    etEmail.setText(user.getEmail());
+                    etTelefono.setText(user.getTelefono());
                 }
             }
 
             @Override
             public void onFailure(Call<Usuario> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(PerfilActivity.this, "Error al cargar datos", Toast.LENGTH_SHORT).show();
+                // Si la conexión falla, no mostramos error porque el usuario ya tiene la info básica local cargada
             }
         });
     }
 
-    private void actualizarPerfil() {
-        String nombre = etNombre.getText().toString().trim();
-        String telefono = etTelefono.getText().toString().trim();
+    /**
+     * Recoge los datos editados por el usuario, valida que sean correctos y los envía al servidor.
+     */
+    private void intentarActualizarPerfil() {
+        String nuevoNombre = etNombre.getText().toString().trim();
+        String nuevoTelefono = etTelefono.getText().toString().trim();
 
-        if (nombre.isEmpty()) {
+        // Validación básica de seguridad
+        if (nuevoNombre.isEmpty()) {
             etNombre.setError("El nombre es obligatorio");
             return;
         }
 
+        // Mostramos carga y bloqueamos el botón para evitar envíos duplicados
         progressBar.setVisibility(View.VISIBLE);
         btnActualizar.setEnabled(false);
 
+        // Preparamos el objeto Usuario con los nuevos valores
         Usuario usuarioUpdate = new Usuario();
-        usuarioUpdate.setNombre(nombre);
-        usuarioUpdate.setTelefono(telefono);
+        usuarioUpdate.setNombre(nuevoNombre);
+        usuarioUpdate.setTelefono(nuevoTelefono);
 
+        // Llamada a la API de actualización (PUT api/usuarios/{id})
         apiService.actualizarUsuario(idUsuario, usuarioUpdate).enqueue(new Callback<Usuario>() {
             @Override
             public void onResponse(Call<Usuario> call, Response<Usuario> response) {
                 progressBar.setVisibility(View.GONE);
                 btnActualizar.setEnabled(true);
+                
                 if (response.isSuccessful()) {
-                    Toast.makeText(PerfilActivity.this, "Perfil actualizado correctamente", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PerfilActivity.this, "¡Perfil actualizado con éxito!", Toast.LENGTH_SHORT).show();
                     
-                    // Actualizar nombre en SharedPreferences también
-                    SharedPreferences.Editor editor = getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit();
-                    editor.putString("nombreUsuario", nombre);
-                    editor.apply();
+                    // IMPORTANTE: Actualizamos también los datos locales (SharedPreferences)
+                    // para que el nuevo nombre aparezca en el resto de pantallas sin reiniciar la app.
+                    actualizarNombreEnLocal(nuevoNombre);
                 } else {
-                    Toast.makeText(PerfilActivity.this, "Error al actualizar", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PerfilActivity.this, "No se pudieron guardar los cambios", Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -112,8 +146,15 @@ public class PerfilActivity extends AppCompatActivity {
             public void onFailure(Call<Usuario> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
                 btnActualizar.setEnabled(true);
-                Toast.makeText(PerfilActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
+                Toast.makeText(PerfilActivity.this, "Error de red: revisa tu conexión", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /** Guarda de forma permanente el nuevo nombre en las preferencias del dispositivo */
+    private void actualizarNombreEnLocal(String nombre) {
+        SharedPreferences.Editor editor = getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit();
+        editor.putString("nombreUsuario", nombre);
+        editor.apply();
     }
 }

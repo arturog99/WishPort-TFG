@@ -31,9 +31,15 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA DETALLE PISTA: Permite ver info de una pista y seleccionar horario para reservar.
+ * Gestiona el cuadrante de horarios y verifica disponibilidad antes de ir al pago.
+ */
 public class DetallePistaActivity extends AppCompatActivity {
 
     public static final String EXTRA_PISTA = "extra_pista";
+    
+    // Configuración de horarios: de 8 de la mañana a 10 de la noche (22:00)
     private static final int HORA_APERTURA = 8;
     private static final int HORA_CIERRE = 22;
     private static final ZoneId EUROPE_MADRID = ZoneId.of("Europe/Madrid");
@@ -43,19 +49,47 @@ public class DetallePistaActivity extends AppCompatActivity {
     private Button btnSeleccionarFecha, btnReservar;
     private GridLayout gridHorarios;
     private SwipeRefreshLayout swipeRefreshLayout;
+    private LinearLayout loadingLayout;
+
     private Pista pistaActual;
     private ApiService apiService;
     private LocalDate fechaSeleccionada;
     private int horaInicioSeleccionada = -1;
+    
     private List<Reserva> reservasExistentes = new ArrayList<>();
     private List<Button> botonesHorarios = new ArrayList<>();
-    private LinearLayout loadingLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detalle_pista);
 
+        // 1. Inicializar vistas
+        vincularVistas();
+
+        apiService = RetrofitClient.getApiService();
+
+        // 2. Recuperar la pista que nos pasaron desde la lista
+        pistaActual = (Pista) getIntent().getSerializableExtra(EXTRA_PISTA);
+        fechaSeleccionada = LocalDate.now(EUROPE_MADRID);
+
+        if (pistaActual != null) {
+            mostrarInfoPista();
+        }
+
+        // 3. Configurar eventos
+        btnSeleccionarFecha.setOnClickListener(v -> mostrarCalendario());
+        btnReservar.setOnClickListener(v -> verificarDisponibilidadYProceder());
+        swipeRefreshLayout.setOnRefreshListener(this::cargarHorariosOcupados);
+
+        // 4. Preparar el cuadrante de horas (botones del 8 al 22)
+        prepararGridHorarios();
+        
+        // 5. Cargar qué horas están ya reservadas para hoy
+        cargarHorariosOcupados();
+    }
+
+    private void vincularVistas() {
         tvNombre = findViewById(R.id.tvDetalleNombre);
         tvDeporte = findViewById(R.id.tvDetalleDeporte);
         tvEstado = findViewById(R.id.tvDetalleEstado);
@@ -66,38 +100,26 @@ public class DetallePistaActivity extends AppCompatActivity {
         gridHorarios = findViewById(R.id.gridHorarios);
         loadingLayout = findViewById(R.id.loadingLayout);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshDetalle);
-
-        apiService = RetrofitClient.getApiService();
-
-        pistaActual = (Pista) getIntent().getSerializableExtra(EXTRA_PISTA);
-        fechaSeleccionada = LocalDate.now(EUROPE_MADRID);
-
-        if (pistaActual != null) {
-            tvNombre.setText(pistaActual.getNombre());
-            tvDeporte.setText("Deporte: " + pistaActual.getDeporte());
-            tvEstado.setText("Estado: " + pistaActual.getEstado());
-            tvId.setText("ID: " + pistaActual.getIdPista());
-        }
-
-        btnSeleccionarFecha.setOnClickListener(v -> mostrarDatePicker());
-        btnReservar.setOnClickListener(v -> verificarYReservar());
-
-        swipeRefreshLayout.setOnRefreshListener(this::cargarReservasExistentes);
-
-        inicializarGridHorarios();
-        cargarReservasExistentes();
     }
 
-    private void inicializarGridHorarios() {
+    private void mostrarInfoPista() {
+        tvNombre.setText(pistaActual.getNombre());
+        tvDeporte.setText("Deporte: " + pistaActual.getDeporte());
+        tvEstado.setText("Estado: " + pistaActual.getEstado());
+        tvId.setText("ID Pista: " + pistaActual.getIdPista());
+        tvFechaSeleccionada.setText("Fecha: " + fechaSeleccionada.format(DATE_FORMATTER));
+    }
+
+    /** Crea los botones dinámicamente en el GridLayout */
+    private void prepararGridHorarios() {
         gridHorarios.removeAllViews();
         botonesHorarios.clear();
 
         for (int hora = HORA_APERTURA; hora < HORA_CIERRE; hora++) {
             Button btnHora = new Button(this);
             btnHora.setText(String.format("%02d:00", hora));
-            btnHora.setTag(hora);
-            btnHora.setEnabled(false);
-            btnHora.setAlpha(0.5f);
+            btnHora.setTag(hora); // Guardamos la hora para saber cuál es al hacer clic
+            btnHora.setEnabled(false); // Empiezan apagados hasta que cargue la API
             
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
             params.width = 0;
@@ -107,31 +129,28 @@ public class DetallePistaActivity extends AppCompatActivity {
             btnHora.setLayoutParams(params);
 
             final int horaFinal = hora;
-            btnHora.setOnClickListener(v -> seleccionarHora(horaFinal));
+            btnHora.setOnClickListener(v -> marcarHoraSeleccionada(horaFinal));
 
             botonesHorarios.add(btnHora);
             gridHorarios.addView(btnHora);
         }
     }
 
-    private void mostrarDatePicker() {
-        DatePickerDialog datePickerDialog = new DatePickerDialog(
-                this,
-                (view, year, month, dayOfMonth) -> {
-                    fechaSeleccionada = LocalDate.of(year, month + 1, dayOfMonth);
-                    tvFechaSeleccionada.setText("Fecha: " + fechaSeleccionada.format(DATE_FORMATTER));
-                    resetearBotonesHorarios();
-                    cargarReservasExistentes();
-                },
-                fechaSeleccionada.getYear(),
-                fechaSeleccionada.getMonthValue() - 1,
-                fechaSeleccionada.getDayOfMonth()
-        );
-        datePickerDialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
-        datePickerDialog.show();
+    /** Abre el selector de fecha y recarga los horarios */
+    private void mostrarCalendario() {
+        DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
+            fechaSeleccionada = LocalDate.of(year, month + 1, day);
+            tvFechaSeleccionada.setText("Fecha: " + fechaSeleccionada.format(DATE_FORMATTER));
+            resetearSeleccion();
+            cargarHorariosOcupados();
+        }, fechaSeleccionada.getYear(), fechaSeleccionada.getMonthValue() - 1, fechaSeleccionada.getDayOfMonth());
+        
+        dialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
+        dialog.show();
     }
 
-    private void cargarReservasExistentes() {
+    /** Pide al servidor las reservas de esta pista para el día elegido */
+    private void cargarHorariosOcupados() {
         if (pistaActual == null) return;
 
         swipeRefreshLayout.setRefreshing(true);
@@ -143,95 +162,93 @@ public class DetallePistaActivity extends AppCompatActivity {
                     public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
                         swipeRefreshLayout.setRefreshing(false);
                         if (response.isSuccessful() && response.body() != null) {
-                            reservasExistentes.clear();
-                            reservasExistentes.addAll(response.body());
-                            actualizarHorariosDisponibles();
+                            reservasExistentes = response.body();
+                            refrescarEstadoBotones();
                         }
                     }
 
                     @Override
                     public void onFailure(Call<List<Reserva>> call, Throwable t) {
                         swipeRefreshLayout.setRefreshing(false);
-                        Toast.makeText(DetallePistaActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DetallePistaActivity.this, "Error de red al cargar horarios", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void resetearBotonesHorarios() {
-        horaInicioSeleccionada = -1;
-        for (Button btn : botonesHorarios) {
-            btn.setEnabled(false);
-            btn.setAlpha(0.5f);
-            btn.setBackgroundColor(Color.LTGRAY);
-        }
-    }
-
-    private void actualizarHorariosDisponibles() {
+    /** Activa o desactiva botones según si la hora está ocupada o ya ha pasado */
+    private void refrescarEstadoBotones() {
         ZonedDateTime ahora = ZonedDateTime.now(EUROPE_MADRID);
         int horaActual = ahora.getHour();
         boolean esHoy = fechaSeleccionada.equals(LocalDate.now(EUROPE_MADRID));
 
         for (Button btn : botonesHorarios) {
-            int hora = (int) btn.getTag();
-            boolean ocupado = isHoraOcupada(hora);
-            boolean horaPasada = esHoy && hora <= horaActual;
+            int horaBtn = (int) btn.getTag();
+            boolean ocupada = false;
 
-            if (ocupado || horaPasada) {
+            // Revisar si esta hora está en la lista de reservas recibida
+            for (Reserva r : reservasExistentes) {
+                if (r.getHoraInicio() != null && r.getHoraInicio().getHour() == horaBtn) {
+                    ocupada = true;
+                    break;
+                }
+            }
+
+            boolean pasada = esHoy && horaBtn <= horaActual;
+
+            if (ocupada || pasada) {
                 btn.setEnabled(false);
-                btn.setAlpha(0.3f);
                 btn.setBackgroundColor(Color.GRAY);
+                btn.setAlpha(0.3f);
             } else {
                 btn.setEnabled(true);
-                btn.setAlpha(1.0f);
                 btn.setBackgroundColor(Color.LTGRAY);
+                btn.setAlpha(1.0f);
             }
         }
     }
 
-    private boolean isHoraOcupada(int hora) {
-        for (Reserva reserva : reservasExistentes) {
-            if (reserva.getHoraInicio() != null) {
-                if (hora == reserva.getHoraInicio().getHour()) return true;
-            }
-        }
-        return false;
-    }
-
-    private void seleccionarHora(int hora) {
+    private void marcarHoraSeleccionada(int hora) {
         horaInicioSeleccionada = hora;
         for (Button btn : botonesHorarios) {
-            int btnHora = (int) btn.getTag();
-            if (btnHora == hora) {
-                btn.setBackgroundColor(Color.GREEN);
-            } else if (!isHoraOcupada(btnHora)) {
-                btn.setBackgroundColor(Color.LTGRAY);
-            }
+            int h = (int) btn.getTag();
+            // Si el botón es el clicado, verde. Si está libre, gris claro.
+            if (h == hora) btn.setBackgroundColor(Color.GREEN);
+            else if (btn.isEnabled()) btn.setBackgroundColor(Color.LTGRAY);
         }
     }
 
-    private void verificarYReservar() {
+    private void resetearSeleccion() {
+        horaInicioSeleccionada = -1;
+        for (Button btn : botonesHorarios) {
+            btn.setEnabled(false);
+            btn.setBackgroundColor(Color.LTGRAY);
+        }
+    }
+
+    /** Antes de ir al pago, preguntamos de nuevo al servidor por si alguien se adelantó */
+    private void verificarDisponibilidadYProceder() {
         if (horaInicioSeleccionada == -1) {
-            Toast.makeText(this, "Selecciona un horario", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Por favor, elige una hora", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        mostrarLoading("Verificando disponibilidad...");
+        mostrarLoading("Verificando hueco...");
         String fechaStr = fechaSeleccionada.format(DATE_FORMATTER);
-        String hInicio = String.format("%02d:00", horaInicioSeleccionada);
+        String hIni = String.format("%02d:00", horaInicioSeleccionada);
         String hFin = String.format("%02d:00", horaInicioSeleccionada + 1);
 
-        apiService.verificarDisponibilidad(pistaActual.getIdPista(), fechaStr, hInicio, hFin)
+        apiService.verificarDisponibilidad(pistaActual.getIdPista(), fechaStr, hIni, hFin)
                 .enqueue(new Callback<Map<String, Object>>() {
                     @Override
                     public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                         ocultarLoading();
                         if (response.isSuccessful() && response.body() != null) {
-                            boolean disponible = (boolean) response.body().get("disponible");
-                            if (disponible) {
-                                irACheckout();
+                            boolean libre = (boolean) response.body().get("disponible");
+                            if (libre) {
+                                irAPantallaDePago();
                             } else {
-                                Toast.makeText(DetallePistaActivity.this, "Lo sentimos, este horario se acaba de ocupar", Toast.LENGTH_LONG).show();
-                                cargarReservasExistentes();
+                                Toast.makeText(DetallePistaActivity.this, "¡Vaya! Alguien acaba de reservar esa hora.", Toast.LENGTH_LONG).show();
+                                cargarHorariosOcupados(); // Refrescar para mostrar la realidad
                             }
                         }
                     }
@@ -239,12 +256,12 @@ public class DetallePistaActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Call<Map<String, Object>> call, Throwable t) {
                         ocultarLoading();
-                        Toast.makeText(DetallePistaActivity.this, "Error de verificación", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DetallePistaActivity.this, "Fallo al verificar", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void irACheckout() {
+    private void irAPantallaDePago() {
         Intent intent = new Intent(this, CheckoutActivity.class);
         intent.putExtra("EXTRA_PISTA", pistaActual);
         intent.putExtra("EXTRA_FECHA", fechaSeleccionada.toString());
@@ -252,9 +269,9 @@ public class DetallePistaActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void mostrarLoading(String mensaje) {
+    private void mostrarLoading(String msg) {
         loadingLayout.setVisibility(LinearLayout.VISIBLE);
-        ((TextView)findViewById(R.id.tvLoadingMensaje)).setText(mensaje);
+        ((TextView)findViewById(R.id.tvLoadingMensaje)).setText(msg);
     }
 
     private void ocultarLoading() {

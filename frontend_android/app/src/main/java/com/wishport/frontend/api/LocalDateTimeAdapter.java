@@ -10,14 +10,17 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * TypeAdapter para serializar/deserializar java.time.LocalDate y LocalTime con Gson.
- * Usa formato ISO-8601 estandar.
+ * TRADUCTOR DE FECHAS (Adapter): 
+ * Las bases de datos y Java guardan las fechas de formas distintas. 
+ * Esta clase le enseña a Retrofit cómo convertir los textos del servidor (JSON)
+ * en objetos de fecha reales (LocalDate y LocalTime) que podamos usar en Android.
  */
 public class LocalDateTimeAdapter {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_TIME;
 
+    /** Convierte fechas (Año-Mes-Día) */
     public static final TypeAdapter<LocalDate> LOCAL_DATE = new TypeAdapter<LocalDate>() {
         @Override
         public void write(JsonWriter out, LocalDate value) throws IOException {
@@ -31,6 +34,7 @@ public class LocalDateTimeAdapter {
         }
     };
 
+    /** Convierte horas (Hora:Minuto) */
     public static final TypeAdapter<LocalTime> LOCAL_TIME = new TypeAdapter<LocalTime>() {
         @Override
         public void write(JsonWriter out, LocalTime value) throws IOException {

@@ -29,6 +29,10 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA PRINCIPAL: Muestra el listado de pistas deportivas disponibles.
+ * Permite filtrar por deporte (a través del adapter) y acceder a reservas o perfil.
+ */
 public class PistasActivity extends AppCompatActivity {
 
     private RecyclerView recyclerViewPistas;
@@ -42,30 +46,38 @@ public class PistasActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pantalla_deportes);
 
+        // 1. Enlazamos los elementos de la interfaz (XML) con Java
         btnPerfil = findViewById(R.id.btnPerfil);
         Button btnMisReservas = findViewById(R.id.btnMisReservas);
         recyclerViewPistas = findViewById(R.id.recyclerViewPistas);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshPistas);
         shimmerFrameLayout = findViewById(R.id.shimmerPistas);
 
+        // 2. Configuramos la lista (RecyclerView) para que se vea vertical
         recyclerViewPistas.setLayoutManager(new LinearLayoutManager(this));
 
+        // 3. Configuración de botones superiores
         btnMisReservas.setOnClickListener(v -> {
-            Intent intent = new Intent(PistasActivity.this, ReservasActivity.class);
-            startActivity(intent);
+            startActivity(new Intent(PistasActivity.this, ReservasActivity.class));
         });
 
         btnPerfil.setOnClickListener(v -> {
-            Intent intent = new Intent(PistasActivity.this, PerfilActivity.class);
-            startActivity(intent);
+            startActivity(new Intent(PistasActivity.this, PerfilActivity.class));
         });
 
+        // 4. Configurar el gesto de "tirar para abajo" para actualizar
         swipeRefreshLayout.setOnRefreshListener(this::cargarPistas);
 
+        // 5. Carga inicial de datos
         cargarPistas();
     }
 
+    /**
+     * Llama al servidor para obtener la lista actualizada de pistas.
+     * Gestiona el estado de carga (Shimmer) y los posibles errores.
+     */
     private void cargarPistas() {
+        // Si no estamos refrescando manualmente, mostramos la animación de carga (Shimmer)
         if (!swipeRefreshLayout.isRefreshing()) {
             shimmerFrameLayout.setVisibility(View.VISIBLE);
             shimmerFrameLayout.startShimmer();
@@ -76,36 +88,44 @@ public class PistasActivity extends AppCompatActivity {
         apiService.obtenerPistas().enqueue(new Callback<List<Pista>>() {
             @Override
             public void onResponse(Call<List<Pista>> call, Response<List<Pista>> response) {
-                shimmerFrameLayout.stopShimmer();
-                shimmerFrameLayout.setVisibility(View.GONE);
-                recyclerViewPistas.setVisibility(View.VISIBLE);
-                swipeRefreshLayout.setRefreshing(false);
+                // Parar animaciones de carga
+                finalizarEstadoCarga();
 
                 if (response.isSuccessful() && response.body() != null) {
                     List<Pista> listaPistas = response.body();
+                    
+                    // Configuramos el adaptador con los datos recibidos
                     pistaAdapter = new PistaAdapter(listaPistas);
                     recyclerViewPistas.setAdapter(pistaAdapter);
 
+                    // Al pulsar en una pista, vamos a su detalle
                     pistaAdapter.setOnItemClickListener(pista -> {
                         Intent intent = new Intent(PistasActivity.this, DetallePistaActivity.class);
                         intent.putExtra(DetallePistaActivity.EXTRA_PISTA, pista);
                         startActivity(intent);
                     });
                 } else {
-                    Toast.makeText(PistasActivity.this, "Error al cargar pistas", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PistasActivity.this, "Error al recibir datos del servidor", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<Pista>> call, Throwable t) {
-                shimmerFrameLayout.stopShimmer();
-                shimmerFrameLayout.setVisibility(View.GONE);
-                recyclerViewPistas.setVisibility(View.VISIBLE);
-                swipeRefreshLayout.setRefreshing(false);
-                Toast.makeText(PistasActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
+                finalizarEstadoCarga();
+                Toast.makeText(PistasActivity.this, "Sin conexión: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
+
+    /** Oculta los indicadores de carga y muestra la lista */
+    private void finalizarEstadoCarga() {
+        shimmerFrameLayout.stopShimmer();
+        shimmerFrameLayout.setVisibility(View.GONE);
+        recyclerViewPistas.setVisibility(View.VISIBLE);
+        swipeRefreshLayout.setRefreshing(false);
+    }
+
+    // --- MENÚ DE OPCIONES ---
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -116,16 +136,20 @@ public class PistasActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_logout) {
-            logout();
+            hacerLogout();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void logout() {
+    /**
+     * Cierra la sesión borrando los tokens y volviendo al Login.
+     */
+    private void hacerLogout() {
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
         prefs.edit().clear().apply();
         TokenManager.clear(this);
+        
         Intent intent = new Intent(this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

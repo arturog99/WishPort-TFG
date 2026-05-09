@@ -15,19 +15,20 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Adapter para conectar la lista de Reservas con el RecyclerView.
+ * ADAPTADOR DE RESERVAS: Transforma la lista de reservas del usuario en elementos visuales.
+ * Se usa en la pantalla "Mis Reservas".
  */
 public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaViewHolder> {
 
     private List<Reserva> listaReservas;
-    private DateTimeFormatter dateFormatter;
-    private DateTimeFormatter timeFormatter;
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM");
+    private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+    private OnItemClickListener listener;
 
+    /** Interfaz para detectar clics en una reserva */
     public interface OnItemClickListener {
         void onItemClick(Reserva reserva);
     }
-
-    private OnItemClickListener listener;
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
@@ -35,10 +36,9 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
 
     public ReservaAdapter(List<Reserva> listaReservas) {
         this.listaReservas = listaReservas;
-        this.dateFormatter = DateTimeFormatter.ofPattern("dd/MM");
-        this.timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
     }
 
+    /** Permite actualizar la lista completa (ej: tras borrar una reserva) */
     public void actualizarLista(List<Reserva> nuevaLista) {
         this.listaReservas = nuevaLista;
         notifyDataSetChanged();
@@ -47,8 +47,7 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
     @NonNull
     @Override
     public ReservaViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_reserva, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_reserva, parent, false);
         return new ReservaViewHolder(view);
     }
 
@@ -56,17 +55,18 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
     public void onBindViewHolder(@NonNull ReservaViewHolder holder, int position) {
         Reserva reserva = listaReservas.get(position);
 
-        String deporte = reserva.getIdPista() != null ? reserva.getIdPista().getDeporte() : "Pádel";
+        // 1. Mostrar Deporte
+        String deporte = (reserva.getIdPista() != null) ? reserva.getIdPista().getDeporte() : "Deporte";
         holder.tvDeporte.setText(deporte);
 
-        String fecha = reserva.getFecha() != null ? reserva.getFecha().format(dateFormatter) : "24";
-        String hora = reserva.getHoraInicio() != null ? reserva.getHoraInicio().format(timeFormatter) : "18:00";
+        // 2. Formatear Fecha y Hora (Ej: Día 15/05 - 18:00h)
+        String fecha = (reserva.getFecha() != null) ? reserva.getFecha().format(dateFormatter) : "--/--";
+        String hora = (reserva.getHoraInicio() != null) ? reserva.getHoraInicio().format(timeFormatter) : "--:--";
         holder.tvInfoReserva.setText("Día " + fecha + " - " + hora + "h");
 
+        // 3. Click para ver el QR
         holder.itemView.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onItemClick(reserva);
-            }
+            if (listener != null) listener.onItemClick(reserva);
         });
     }
 
@@ -75,9 +75,6 @@ public class ReservaAdapter extends RecyclerView.Adapter<ReservaAdapter.ReservaV
         return listaReservas != null ? listaReservas.size() : 0;
     }
 
-    /**
-     * ViewHolder que contiene las vistas de cada item de reserva.
-     */
     static class ReservaViewHolder extends RecyclerView.ViewHolder {
         TextView tvDeporte, tvInfoReserva;
 

@@ -1,6 +1,5 @@
 package com.wishport.frontend.ui;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -32,6 +31,10 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA DETALLE DE RESERVA: Muestra el QR y los datos de una reserva ya realizada.
+ * Permite al usuario cancelar la reserva si aún no ha pasado la hora.
+ */
 public class DetalleReservaActivity extends AppCompatActivity {
 
     public static final String EXTRA_RESERVA = "extra_reserva";
@@ -42,33 +45,31 @@ public class DetalleReservaActivity extends AppCompatActivity {
     private ProgressBar progressBar;
 
     private Reserva reserva;
-    private DateTimeFormatter dateFormatter;
-    private DateTimeFormatter timeFormatter;
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detalle_reserva);
 
-        dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        vincularVistas();
 
-        initViews();
-
+        // 1. Recuperar la reserva enviada desde la lista
         reserva = (Reserva) getIntent().getSerializableExtra(EXTRA_RESERVA);
-        if (reserva == null) {
-            Toast.makeText(this, "Error: No se pudo cargar la reserva", Toast.LENGTH_SHORT).show();
+        
+        if (reserva != null) {
+            rellenarDatosPantalla();
+            generarImagenQR();
+        } else {
+            Toast.makeText(this, "Error al cargar la reserva", Toast.LENGTH_SHORT).show();
             finish();
-            return;
         }
 
-        mostrarDatosReserva();
-        generarCodigoQR();
-
-        btnCancelarReserva.setOnClickListener(v -> mostrarDialogoCancelar());
+        btnCancelarReserva.setOnClickListener(v -> confirmarCancelacion());
     }
 
-    private void initViews() {
+    private void vincularVistas() {
         tvDeporte = findViewById(R.id.tvDeporte);
         tvPista = findViewById(R.id.tvPista);
         tvFecha = findViewById(R.id.tvFecha);
@@ -80,141 +81,106 @@ public class DetalleReservaActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
     }
 
-    private void mostrarDatosReserva() {
-        String deporte = reserva.getIdPista() != null && reserva.getIdPista().getDeporte() != null
-                ? reserva.getIdPista().getDeporte() : "Pádel";
+    private void rellenarDatosPantalla() {
+        // Datos de la pista
+        String deporte = (reserva.getIdPista() != null) ? reserva.getIdPista().getDeporte() : "Pista";
+        String nombrePista = (reserva.getIdPista() != null) ? reserva.getIdPista().getNombre() : "N/A";
+        
         tvDeporte.setText(deporte);
+        tvPista.setText(nombrePista);
 
-        String pista = reserva.getIdPista() != null && reserva.getIdPista().getNombre() != null
-                ? reserva.getIdPista().getNombre() : "Pista " + (reserva.getIdPista() != null ? reserva.getIdPista().getIdPista() : "1");
-        tvPista.setText(pista);
-
-        String fecha = reserva.getFecha() != null ? reserva.getFecha().format(dateFormatter) : "N/A";
+        // Fecha y Hora formateadas
+        String fecha = (reserva.getFecha() != null) ? reserva.getFecha().format(dateFormatter) : "N/A";
+        String horaI = (reserva.getHoraInicio() != null) ? reserva.getHoraInicio().format(timeFormatter) : "N/A";
+        String horaF = (reserva.getHoraFin() != null) ? reserva.getHoraFin().format(timeFormatter) : "N/A";
+        
         tvFecha.setText(fecha);
-
-        String horaInicio = reserva.getHoraInicio() != null ? reserva.getHoraInicio().format(timeFormatter) : "N/A";
-        String horaFin = reserva.getHoraFin() != null ? reserva.getHoraFin().format(timeFormatter) : "N/A";
-        tvHora.setText(horaInicio + " - " + horaFin);
-
-        // Actualizar la lógica de colores para incluir el nuevo estado
-        String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "Activa";
-        tvEstado.setText(estado);
-
-        // Color según estado
-        int colorEstado;
-        if (estado.equalsIgnoreCase("activa")) {
-            colorEstado = Color.parseColor("#4CAF50"); // Verde
-        } else if (estado.equalsIgnoreCase("completada") || estado.equalsIgnoreCase("finalizada")) {
-            colorEstado = Color.parseColor("#757575"); // Gris
-        } else {
-            colorEstado = Color.parseColor("#F44336"); // Rojo (cancelada)
-        }
-        tvEstado.setTextColor(colorEstado);
-
+        tvHora.setText(horaI + " - " + horaF);
         tvIdReserva.setText("#" + reserva.getIdReserva());
 
-        // Verificar si la reserva ya pasó para deshabilitar cancelación
-        verificarYConfigurarBotonCancelar();
-    }
+        // Lógica de colores del Estado
+        configurarVisualEstado();
 
-    private void verificarYConfigurarBotonCancelar() {
-        String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "";
-
-        // Verificar si es una reserva pasada (estado completada/finalizada o fecha/hora ya pasó)
-        boolean esReservaPasada = estado.equalsIgnoreCase("completada")
-                || estado.equalsIgnoreCase("finalizada")
-                || esFechaHoraPasada();
-
-        if (esReservaPasada) {
-            btnCancelarReserva.setEnabled(false);
-            btnCancelarReserva.setAlpha(0.5f);
-            btnCancelarReserva.setText("Reserva Finalizada");
+        // Si la reserva ya pasó, no se puede cancelar
+        if (esReservaAntigua()) {
+            desactivarBotonCancelacion();
         }
     }
 
-    private boolean esFechaHoraPasada() {
-        if (reserva.getFecha() == null || reserva.getHoraFin() == null) {
-            return false;
+    private void configurarVisualEstado() {
+        String estado = (reserva.getEstadoReserva() != null) ? reserva.getEstadoReserva() : "activa";
+        tvEstado.setText(estado.toUpperCase());
+
+        if (estado.equalsIgnoreCase("activa")) {
+            tvEstado.setTextColor(Color.parseColor("#4CAF50")); // Verde
+        } else if (estado.equalsIgnoreCase("cancelada")) {
+            tvEstado.setTextColor(Color.parseColor("#F44336")); // Rojo
+            desactivarBotonCancelacion();
+        } else {
+            tvEstado.setTextColor(Color.GRAY);
         }
-
-        ZoneId madrid = ZoneId.of("Europe/Madrid");
-        ZonedDateTime fechaHoraReserva = ZonedDateTime.of(
-                reserva.getFecha(),
-                reserva.getHoraFin(),
-                madrid
-        );
-
-        ZonedDateTime ahora = ZonedDateTime.now(madrid);
-
-        return fechaHoraReserva.isBefore(ahora);
     }
 
-    private void generarCodigoQR() {
-        String qrData = reserva.getCodigoQr();
-        if (qrData == null || qrData.isEmpty()) {
-            qrData = "RESERVA-" + reserva.getIdReserva();
-        }
+    /** Comprueba si la fecha actual es posterior a la reserva */
+    private boolean esReservaAntigua() {
+        if (reserva.getFecha() == null || reserva.getHoraFin() == null) return false;
+        
+        ZonedDateTime finReserva = ZonedDateTime.of(reserva.getFecha(), reserva.getHoraFin(), ZoneId.of("Europe/Madrid"));
+        return finReserva.isBefore(ZonedDateTime.now(ZoneId.of("Europe/Madrid")));
+    }
+
+    private void desactivarBotonCancelacion() {
+        btnCancelarReserva.setEnabled(false);
+        btnCancelarReserva.setAlpha(0.5f);
+        btnCancelarReserva.setText("Finalizada o Cancelada");
+    }
+
+    /**
+     * GENERACIÓN DE QR: Convierte el código de texto de la reserva en una imagen.
+     */
+    private void generarImagenQR() {
+        String data = reserva.getCodigoQr();
+        if (data == null || data.isEmpty()) data = "ID-" + reserva.getIdReserva();
 
         try {
             QRCodeWriter writer = new QRCodeWriter();
-            BitMatrix bitMatrix = writer.encode(qrData, BarcodeFormat.QR_CODE, 512, 512);
+            BitMatrix matrix = writer.encode(data, BarcodeFormat.QR_CODE, 512, 512);
+            Bitmap bmp = Bitmap.createBitmap(512, 512, Bitmap.Config.RGB_565);
 
-            int width = bitMatrix.getWidth();
-            int height = bitMatrix.getHeight();
-            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
-
-            for (int x = 0; x < width; x++) {
-                for (int y = 0; y < height; y++) {
-                    bitmap.setPixel(x, y, bitMatrix.get(x, y) ? Color.BLACK : Color.WHITE);
+            for (int x = 0; x < 512; x++) {
+                for (int y = 0; y < 512; y++) {
+                    bmp.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
                 }
             }
-
-            ivCodigoQR.setImageBitmap(bitmap);
+            ivCodigoQR.setImageBitmap(bmp);
         } catch (WriterException e) {
-            Log.e("QR", "Error generando QR", e);
-            Toast.makeText(this, "Error generando código QR", Toast.LENGTH_SHORT).show();
+            Log.e("QR_ERROR", "No se pudo generar el QR", e);
         }
     }
 
-    private void mostrarDialogoCancelar() {
-        // Verificar si la reserva ya pasó
-        String estado = reserva.getEstadoReserva() != null ? reserva.getEstadoReserva() : "";
-        boolean esReservaPasada = estado.equalsIgnoreCase("completada")
-                || estado.equalsIgnoreCase("finalizada")
-                || esFechaHoraPasada();
-
-        if (esReservaPasada) {
-            Toast.makeText(this, "No puedes cancelar una reserva que ya ha finalizado", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+    private void confirmarCancelacion() {
         new AlertDialog.Builder(this)
-                .setTitle("Cancelar Reserva")
-                .setMessage("¿Estás seguro de que quieres cancelar esta reserva? Esta acción no se puede deshacer.")
-                .setPositiveButton("Sí, Cancelar", (dialog, which) -> cancelarReserva())
+                .setTitle("¿Cancelar reserva?")
+                .setMessage("Esta acción es irreversible.")
+                .setPositiveButton("Sí, cancelar", (dialog, which) -> ejecutarPeticionCancelacion())
                 .setNegativeButton("No", null)
                 .show();
     }
 
-    private void cancelarReserva() {
+    private void ejecutarPeticionCancelacion() {
         progressBar.setVisibility(View.VISIBLE);
         btnCancelarReserva.setEnabled(false);
 
-        ApiService apiService = RetrofitClient.getApiService();
-        Call<Void> call = apiService.cancelarReserva(reserva.getIdReserva());
-
-        call.enqueue(new Callback<Void>() {
+        RetrofitClient.getApiService().cancelarReserva(reserva.getIdReserva()).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 progressBar.setVisibility(View.GONE);
-
                 if (response.isSuccessful()) {
-                    Toast.makeText(DetalleReservaActivity.this, "Reserva cancelada correctamente", Toast.LENGTH_SHORT).show();
-                    setResult(RESULT_OK);
-                    finish();
+                    Toast.makeText(DetalleReservaActivity.this, "Reserva cancelada", Toast.LENGTH_SHORT).show();
+                    finish(); // Cerramos y volvemos a la lista
                 } else {
                     btnCancelarReserva.setEnabled(true);
-                    Toast.makeText(DetalleReservaActivity.this, "Error al cancelar la reserva", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(DetalleReservaActivity.this, "No se pudo cancelar", Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -222,7 +188,7 @@ public class DetalleReservaActivity extends AppCompatActivity {
             public void onFailure(Call<Void> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
                 btnCancelarReserva.setEnabled(true);
-                Toast.makeText(DetalleReservaActivity.this, "Error de conexión: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(DetalleReservaActivity.this, "Error de red", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -29,6 +29,10 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA MIS RESERVAS: Muestra el historial de reservas del usuario logueado.
+ * Usa Shimmer para la carga y permite refrescar deslizando hacia abajo.
+ */
 public class ReservasActivity extends AppCompatActivity {
 
     private RecyclerView recyclerViewReservas;
@@ -36,6 +40,7 @@ public class ReservasActivity extends AppCompatActivity {
     private LinearLayout emptyStateLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
     private ShimmerFrameLayout shimmerFrameLayout;
+    
     private List<Reserva> listaReservas = new ArrayList<>();
 
     @Override
@@ -43,35 +48,48 @@ public class ReservasActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pantalla_reservas);
 
-        recyclerViewReservas = findViewById(R.id.recyclerViewReservas);
-        emptyStateLayout = findViewById(R.id.emptyStateLayout);
-        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
-        shimmerFrameLayout = findViewById(R.id.shimmerReservas);
+        // 1. Enlace de vistas
+        vincularVistas();
 
+        // 2. Configuración de la lista
         recyclerViewReservas.setLayoutManager(new LinearLayoutManager(this));
         reservaAdapter = new ReservaAdapter(listaReservas);
         recyclerViewReservas.setAdapter(reservaAdapter);
 
+        // 3. Eventos: Click en reserva para ver detalle/QR
         reservaAdapter.setOnItemClickListener(reserva -> {
             Intent intent = new Intent(ReservasActivity.this, DetalleReservaActivity.class);
             intent.putExtra(DetalleReservaActivity.EXTRA_RESERVA, reserva);
             startActivity(intent);
         });
 
-        swipeRefreshLayout.setOnRefreshListener(this::cargarReservas);
+        // 4. Configurar Swipe to Refresh
+        swipeRefreshLayout.setOnRefreshListener(this::obtenerReservasDelServidor);
 
-        cargarReservas();
+        // 5. Carga inicial
+        obtenerReservasDelServidor();
     }
 
-    private void cargarReservas() {
+    private void vincularVistas() {
+        recyclerViewReservas = findViewById(R.id.recyclerViewReservas);
+        emptyStateLayout = findViewById(R.id.emptyStateLayout);
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
+        shimmerFrameLayout = findViewById(R.id.shimmerReservas);
+    }
+
+    /**
+     * Pide al servidor las reservas del usuario actual.
+     */
+    private void obtenerReservasDelServidor() {
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
         int idUsuario = prefs.getInt("idUsuario", -1);
 
         if (idUsuario == -1) {
-            Toast.makeText(this, "Sesión expirada", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error: Sesión no encontrada", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Mostrar animación de carga si no es un refresh manual
         if (!swipeRefreshLayout.isRefreshing()) {
             shimmerFrameLayout.setVisibility(View.VISIBLE);
             shimmerFrameLayout.startShimmer();
@@ -83,15 +101,14 @@ public class ReservasActivity extends AppCompatActivity {
         apiService.obtenerReservasPorUsuario(idUsuario).enqueue(new Callback<List<Reserva>>() {
             @Override
             public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
-                shimmerFrameLayout.stopShimmer();
-                shimmerFrameLayout.setVisibility(View.GONE);
-                swipeRefreshLayout.setRefreshing(false);
+                finalizarEstadoVisual();
 
                 if (response.isSuccessful() && response.body() != null) {
                     listaReservas.clear();
                     listaReservas.addAll(response.body());
                     reservaAdapter.notifyDataSetChanged();
 
+                    // Controlar si mostramos el mensaje de "No hay reservas"
                     if (listaReservas.isEmpty()) {
                         recyclerViewReservas.setVisibility(View.GONE);
                         emptyStateLayout.setVisibility(View.VISIBLE);
@@ -104,13 +121,18 @@ public class ReservasActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<List<Reserva>> call, Throwable t) {
-                shimmerFrameLayout.stopShimmer();
-                shimmerFrameLayout.setVisibility(View.GONE);
-                swipeRefreshLayout.setRefreshing(false);
+                finalizarEstadoVisual();
                 recyclerViewReservas.setVisibility(View.VISIBLE);
-                Toast.makeText(ReservasActivity.this, "Error al conectar", Toast.LENGTH_SHORT).show();
+                Toast.makeText(ReservasActivity.this, "Error al conectar con el servidor", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /** Oculta Shimmer y para el refresco */
+    private void finalizarEstadoVisual() {
+        shimmerFrameLayout.stopShimmer();
+        shimmerFrameLayout.setVisibility(View.GONE);
+        swipeRefreshLayout.setRefreshing(false);
     }
 
     @Override
@@ -122,16 +144,17 @@ public class ReservasActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_logout) {
-            logout();
+            cerrarSesion();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void logout() {
+    private void cerrarSesion() {
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
         prefs.edit().clear().apply();
         TokenManager.clear(this);
+        
         Intent intent = new Intent(this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

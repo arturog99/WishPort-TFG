@@ -3,18 +3,18 @@ package com.wishport.frontend.models;
 import java.io.Serializable;
 
 /**
- * Clase que representa el modelo de un Usuario (entidad del Backend).
+ * MODELO USUARIO: Representa a una persona en el sistema.
+ * Se usa tanto para el Login como para mostrar datos en el Perfil.
  */
 public class Usuario implements Serializable {
     private Integer idUsuario;
     private String nombre;
     private String email;
-    private String password;
-    private String rol;
+    private String password; // Solo se usa en el Login/Registro
+    private String rol;      // "USER" o "ADMIN"
     private String telefono;
 
-    public Usuario() {
-    }
+    public Usuario() {}
 
     public Usuario(Integer idUsuario, String nombre, String email, String password, String telefono) {
         this.idUsuario = idUsuario;
@@ -24,51 +24,23 @@ public class Usuario implements Serializable {
         this.telefono = telefono;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
-    }
+    // --- GETTERS Y SETTERS (Acceso a los datos) ---
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
-    }
+    public Integer getIdUsuario() { return idUsuario; }
+    public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
 
-    public String getNombre() {
-        return nombre;
-    }
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
 
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public String getEmail() {
-        return email;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    public String getRol() { return rol; }
+    public void setRol(String rol) { this.rol = rol; }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getRol() {
-        return rol;
-    }
-
-    public void setRol(String rol) {
-        this.rol = rol;
-    }
-
-    public String getTelefono() {
-        return telefono;
-    }
-
-    public void setTelefono(String telefono) {
-        this.telefono = telefono;
-    }
+    public String getTelefono() { return telefono; }
+    public void setTelefono(String telefono) { this.telefono = telefono; }
 }

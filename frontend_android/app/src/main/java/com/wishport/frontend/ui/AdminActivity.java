@@ -16,7 +16,6 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.wishport.frontend.R;
@@ -34,15 +33,18 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * PANTALLA DE ADMINISTRADOR: Permite gestionar las reservas del día y validar accesos mediante QR.
+ * Solo accesible para usuarios con el rol "ADMIN".
+ */
 public class AdminActivity extends AppCompatActivity {
 
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
+    private static final int CAMERA_PERMISSION_CODE = 100;
 
     private RecyclerView recyclerViewReservas;
     private ReservaAdapter reservaAdapter;
     private ProgressBar progressBar;
     private View emptyStateLayout;
-    private FloatingActionButton btnEscanearQr;
 
     private ApiService apiService;
     private List<Reserva> reservasHoy = new ArrayList<>();
@@ -52,31 +54,45 @@ public class AdminActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
 
-        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-        String rol = prefs.getString("rolUsuario", "");
-        if (!"ADMIN".equals(rol)) {
-            Toast.makeText(this, "Acceso denegado", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        // 1. SEGURIDAD: Verificar que el usuario es realmente un administrador
+        validarAccesoAdmin();
 
-        recyclerViewReservas = findViewById(R.id.recyclerViewReservasHoy);
-        progressBar = findViewById(R.id.progressBar);
-        emptyStateLayout = findViewById(R.id.emptyStateLayout);
-        btnEscanearQr = findViewById(R.id.btnEscanearQr);
+        // 2. Vincular elementos de la UI
+        vincularVistas();
 
+        // 3. Configurar la lista de reservas
         recyclerViewReservas.setLayoutManager(new LinearLayoutManager(this));
         reservaAdapter = new ReservaAdapter(new ArrayList<>());
         recyclerViewReservas.setAdapter(reservaAdapter);
 
         apiService = RetrofitClient.getApiService();
 
-        findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
-        btnEscanearQr.setOnClickListener(v -> iniciarEscaneoQR());
+        // 4. Configurar botones
+        findViewById(R.id.btnLogout).setOnClickListener(v -> hacerLogout());
+        findViewById(R.id.btnEscanearQr).setOnClickListener(v -> solicitarPermisoCamara());
 
+        // 5. Cargar las reservas que hay para el día de hoy
         cargarReservasDelDia();
     }
 
+    private void validarAccesoAdmin() {
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        String rol = prefs.getString("rolUsuario", "");
+        if (!"ADMIN".equals(rol)) {
+            Toast.makeText(this, "Acceso denegado: No eres administrador", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
+    private void vincularVistas() {
+        recyclerViewReservas = findViewById(R.id.recyclerViewReservasHoy);
+        progressBar = findViewById(R.id.progressBar);
+        emptyStateLayout = findViewById(R.id.emptyStateLayout);
+    }
+
+    /**
+     * Descarga todas las reservas y filtra solo las que coinciden con la fecha actual.
+     */
     private void cargarReservasDelDia() {
         progressBar.setVisibility(View.VISIBLE);
         emptyStateLayout.setVisibility(View.GONE);
@@ -86,45 +102,65 @@ public class AdminActivity extends AppCompatActivity {
             public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
                 progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
-                    List<Reserva> todasLasReservas = response.body();
-                    LocalDate hoy = LocalDate.now();
-
-                    reservasHoy = new ArrayList<>();
-                    for (Reserva reserva : todasLasReservas) {
-                        if (reserva.getFecha() != null && reserva.getFecha().equals(hoy)) {
-                            reservasHoy.add(reserva);
-                        }
-                    }
-
-                    if (reservasHoy.isEmpty()) {
-                        emptyStateLayout.setVisibility(View.VISIBLE);
-                        recyclerViewReservas.setVisibility(View.GONE);
-                    } else {
-                        emptyStateLayout.setVisibility(View.GONE);
-                        recyclerViewReservas.setVisibility(View.VISIBLE);
-                        reservaAdapter.actualizarLista(reservasHoy);
-                    }
-                } else {
-                    Toast.makeText(AdminActivity.this, "Error al cargar reservas", Toast.LENGTH_SHORT).show();
+                    filtrarReservasDeHoy(response.body());
                 }
             }
 
             @Override
             public void onFailure(Call<List<Reserva>> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(AdminActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
+                Toast.makeText(AdminActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void iniciarEscaneoQR() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+    private void filtrarReservasDeHoy(List<Reserva> todas) {
+        reservasHoy.clear();
+        LocalDate hoy = LocalDate.now();
+
+        for (Reserva r : todas) {
+            if (r.getFecha() != null && r.getFecha().equals(hoy)) {
+                reservasHoy.add(r);
+            }
+        }
+
+        actualizarInterfaz();
+    }
+
+    private void actualizarInterfaz() {
+        if (reservasHoy.isEmpty()) {
+            emptyStateLayout.setVisibility(View.VISIBLE);
+            recyclerViewReservas.setVisibility(View.GONE);
         } else {
-            IntentIntegrator integrator = new IntentIntegrator(this);
-            integrator.setPrompt("Escanea el código QR de la reserva");
-            integrator.setOrientationLocked(true);
-            integrator.initiateScan();
+            emptyStateLayout.setVisibility(View.GONE);
+            recyclerViewReservas.setVisibility(View.VISIBLE);
+            reservaAdapter.actualizarLista(reservasHoy);
+        }
+    }
+
+    // --- GESTIÓN DE ESCANEO QR ---
+
+    private void solicitarPermisoCamara() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+        } else {
+            abrirEscanner();
+        }
+    }
+
+    private void abrirEscanner() {
+        IntentIntegrator integrator = new IntentIntegrator(this);
+        integrator.setPrompt("Enfoca el código QR del usuario");
+        integrator.setBeepEnabled(true);
+        integrator.setOrientationLocked(true);
+        integrator.initiateScan();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            abrirEscanner();
         }
     }
 
@@ -133,37 +169,34 @@ public class AdminActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null && result.getContents() != null) {
-            validarQR(result.getContents());
+            validarCodigoEscaneado(result.getContents());
         }
     }
 
-    private void validarQR(String qrCode) {
-        Reserva encontrada = null;
+    /**
+     * Compara el código del QR con la lista de reservas de hoy para confirmar el acceso.
+     */
+    private void validarCodigoEscaneado(String qrLeido) {
+        Reserva reservaValida = null;
         for (Reserva r : reservasHoy) {
-            if (qrCode.equals(r.getCodigoQr())) {
-                encontrada = r;
+            if (qrLeido.equals(r.getCodigoQr())) {
+                reservaValida = r;
                 break;
             }
         }
 
-        if (encontrada != null) {
-            Toast.makeText(this, "✓ Reserva Válida: " + encontrada.getIdUsuario().getNombre(), Toast.LENGTH_LONG).show();
+        if (reservaValida != null) {
+            String nombre = reservaValida.getIdUsuario() != null ? reservaValida.getIdUsuario().getNombre() : "Usuario";
+            Toast.makeText(this, "✅ ACCESO CONCEDIDO: " + nombre, Toast.LENGTH_LONG).show();
         } else {
-            Toast.makeText(this, "✗ QR Inválido o de otro día", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "❌ ACCESO DENEGADO: QR inválido o de otro día", Toast.LENGTH_LONG).show();
         }
     }
 
-    private void logout() {
-        // Limpiar SharedPreferences de usuario
-        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-        prefs.edit().clear().apply();
-
-        // Limpiar Token JWT persistente
+    private void hacerLogout() {
+        getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit().clear().apply();
         TokenManager.clear(this);
-
-        Intent intent = new Intent(this, LoginActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+        startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
 }
