@@ -32,6 +32,14 @@
         android:layout_marginBottom="12dp"/>
 
     <EditText
+        android:id="@+id/etTelefono"
+        android:hint="Número de teléfono"
+        android:inputType="phone"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"/>
+
+    <EditText
         android:id="@+id/etPasswordRegistro"
         android:hint="Contraseña"
         android:inputType="textPassword"

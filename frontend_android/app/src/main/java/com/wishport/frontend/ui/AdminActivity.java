@@ -23,6 +23,7 @@ import com.wishport.frontend.R;
 import com.wishport.frontend.adapters.ReservaAdapter;
 import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.api.RetrofitClient;
+import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Reserva;
 
 import java.time.LocalDate;
@@ -51,7 +52,6 @@ public class AdminActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
 
-        // Verificar que es admin
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
         String rol = prefs.getString("rolUsuario", "");
         if (!"ADMIN".equals(rol)) {
@@ -60,103 +60,21 @@ public class AdminActivity extends AppCompatActivity {
             return;
         }
 
-        // Inicializar vistas
         recyclerViewReservas = findViewById(R.id.recyclerViewReservasHoy);
         progressBar = findViewById(R.id.progressBar);
         emptyStateLayout = findViewById(R.id.emptyStateLayout);
         btnEscanearQr = findViewById(R.id.btnEscanearQr);
 
-        // Configurar RecyclerView
         recyclerViewReservas.setLayoutManager(new LinearLayoutManager(this));
         reservaAdapter = new ReservaAdapter(new ArrayList<>());
         recyclerViewReservas.setAdapter(reservaAdapter);
 
-        // Usar RetrofitClient
         apiService = RetrofitClient.getApiService();
 
-        // Botón Logout
         findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
-
-        // Botón Escanear QR
         btnEscanearQr.setOnClickListener(v -> iniciarEscaneoQR());
 
-        // Cargar reservas del día
         cargarReservasDelDia();
-    }
-
-    private void iniciarEscaneoQR() {
-        // Verificar permiso de cámara
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
-                    CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
-            // Iniciar escaneo QR
-            IntentIntegrator integrator = new IntentIntegrator(this);
-            integrator.setPrompt("Escanea el código QR de la reserva");
-            integrator.setCameraId(0);
-            integrator.setBeepEnabled(true);
-            integrator.setBarcodeImageEnabled(true);
-            integrator.setOrientationLocked(true);
-            integrator.initiateScan();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                iniciarEscaneoQR();
-            } else {
-                Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null) {
-            if (result.getContents() == null) {
-                Toast.makeText(this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-            } else {
-                String qrCode = result.getContents();
-                validarQR(qrCode);
-            }
-        }
-    }
-
-    private void validarQR(String qrCode) {
-        // Buscar si el QR corresponde a una reserva de hoy
-        Reserva reservaEncontrada = null;
-        for (Reserva reserva : reservasHoy) {
-            if (qrCode.equals(reserva.getCodigoQr())) {
-                reservaEncontrada = reserva;
-                break;
-            }
-        }
-
-        if (reservaEncontrada != null) {
-            String usuario = reservaEncontrada.getIdUsuario() != null ?
-                    reservaEncontrada.getIdUsuario().getNombre() : "Usuario";
-            String pista = reservaEncontrada.getIdPista() != null ?
-                    reservaEncontrada.getIdPista().getDeporte() : "Pista";
-            String hora = reservaEncontrada.getHoraInicio() != null ?
-                    reservaEncontrada.getHoraInicio().toString() : "";
-
-            Toast.makeText(this,
-                    "✓ Reserva válida: " + usuario + " - " + pista + " " + hora,
-                    Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this,
-                    "✗ QR inválido o no corresponde a una reserva de hoy",
-                    Toast.LENGTH_LONG).show();
-        }
     }
 
     private void cargarReservasDelDia() {
@@ -167,12 +85,10 @@ public class AdminActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
                 progressBar.setVisibility(View.GONE);
-
                 if (response.isSuccessful() && response.body() != null) {
                     List<Reserva> todasLasReservas = response.body();
                     LocalDate hoy = LocalDate.now();
 
-                    // Filtrar reservas de hoy
                     reservasHoy = new ArrayList<>();
                     for (Reserva reserva : todasLasReservas) {
                         if (reserva.getFecha() != null && reserva.getFecha().equals(hoy)) {
@@ -189,35 +105,64 @@ public class AdminActivity extends AppCompatActivity {
                         reservaAdapter.actualizarLista(reservasHoy);
                     }
                 } else {
-                    Toast.makeText(AdminActivity.this,
-                            "Error al cargar reservas: " + response.code(),
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(AdminActivity.this, "Error al cargar reservas", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<Reserva>> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(AdminActivity.this,
-                        "Error de conexión: " + t.getMessage(),
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(AdminActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
             }
         });
     }
 
+    private void iniciarEscaneoQR() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
+            IntentIntegrator integrator = new IntentIntegrator(this);
+            integrator.setPrompt("Escanea el código QR de la reserva");
+            integrator.setOrientationLocked(true);
+            integrator.initiateScan();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        if (result != null && result.getContents() != null) {
+            validarQR(result.getContents());
+        }
+    }
+
+    private void validarQR(String qrCode) {
+        Reserva encontrada = null;
+        for (Reserva r : reservasHoy) {
+            if (qrCode.equals(r.getCodigoQr())) {
+                encontrada = r;
+                break;
+            }
+        }
+
+        if (encontrada != null) {
+            Toast.makeText(this, "✓ Reserva Válida: " + encontrada.getIdUsuario().getNombre(), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "✗ QR Inválido o de otro día", Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void logout() {
+        // Limpiar SharedPreferences de usuario
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.remove("idUsuario");
-        editor.remove("nombreUsuario");
-        editor.remove("emailUsuario");
-        editor.remove("rolUsuario");
-        editor.apply();
+        prefs.edit().clear().apply();
+
+        // Limpiar Token JWT persistente
+        TokenManager.clear(this);
 
         Intent intent = new Intent(this, LoginActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                Intent.FLAG_ACTIVITY_CLEAR_TASK |
-                Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }

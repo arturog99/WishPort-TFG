@@ -11,15 +11,17 @@ public class Usuario implements Serializable {
     private String email;
     private String password;
     private String rol;
+    private String telefono;
 
     public Usuario() {
     }
 
-    public Usuario(Integer idUsuario, String nombre, String email, String password) {
+    public Usuario(Integer idUsuario, String nombre, String email, String password, String telefono) {
         this.idUsuario = idUsuario;
         this.nombre = nombre;
         this.email = email;
         this.password = password;
+        this.telefono = telefono;
     }
 
     public Integer getIdUsuario() {
@@ -60,5 +62,13 @@ public class Usuario implements Serializable {
 
     public void setRol(String rol) {
         this.rol = rol;
+    }
+
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
     }
 }

@@ -1,8 +1,5 @@
 package com.wishport.frontend.api;
 
-/**
- * Interfaz para definir los puntos de enlace (endpoints) de la API con Retrofit.
- */
 import com.wishport.frontend.models.Pista;
 import com.wishport.frontend.models.Reserva;
 import com.wishport.frontend.models.Usuario;
@@ -15,6 +12,7 @@ import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -55,9 +53,15 @@ public interface ApiService {
     @GET("api/usuarios")
     Call<List<Usuario>> obtenerUsuarios();
 
+    @GET("api/usuarios/{id}")
+    Call<Usuario> obtenerUsuarioPorId(@Path("id") int id);
+
     @POST("api/usuarios")
     Call<Usuario> registrarUsuario(@Body Usuario usuario);
 
+    @PUT("api/usuarios/{id}")
+    Call<Usuario> actualizarUsuario(@Path("id") int id, @Body Usuario usuario);
+
     @POST("api/usuarios/login")
-    Call<Usuario> login(@Body Usuario credenciales);
+    Call<Map<String, Object>> login(@Body Usuario credenciales);
 }

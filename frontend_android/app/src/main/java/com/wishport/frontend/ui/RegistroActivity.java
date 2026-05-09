@@ -2,6 +2,7 @@ package com.wishport.frontend.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -16,16 +17,21 @@ import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Usuario;
 
+import java.util.regex.Pattern;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class RegistroActivity extends AppCompatActivity {
 
-    private EditText etNombre, etEmail, etPassword;
+    private EditText etNombre, etEmail, etPassword, etTelefono;
     private Button btnRegistrar;
     private ProgressBar progressBar;
-    private TextView tvMensaje;
+    
+    // Regla de contraseña: mínimo 8 caracteres, una letra y un número
+    private static final Pattern PASSWORD_PATTERN = 
+            Pattern.compile("^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$");
 
     private ApiService apiService;
 
@@ -34,71 +40,44 @@ public class RegistroActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_registro);
 
-        // Inicializar vistas
         etNombre = findViewById(R.id.etNombre);
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPasswordRegistro);
+        etTelefono = findViewById(R.id.etTelefono);
         btnRegistrar = findViewById(R.id.btnRegistrar);
         progressBar = findViewById(R.id.progressBar);
-        tvMensaje = findViewById(R.id.tvMensaje);
 
-        // Usar RetrofitClient centralizado (con adapters java.time)
         apiService = RetrofitClient.getApiService();
 
-        // Listener del botón
         btnRegistrar.setOnClickListener(v -> registrarUsuario());
     }
 
     private void registrarUsuario() {
-        // Obtener valores de los campos
         String nombre = etNombre.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
+        String telefono = etTelefono.getText().toString().trim();
 
-        // Validar campos
-        if (nombre.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Por favor completa todos los campos", Toast.LENGTH_SHORT).show();
+        if (!validarCampos(nombre, email, password, telefono)) {
             return;
         }
 
-        // Mostrar progreso
         progressBar.setVisibility(View.VISIBLE);
         btnRegistrar.setEnabled(false);
 
-        // Crear objeto Usuario (idUsuario es null porque lo genera la BD)
-        Usuario nuevoUsuario = new Usuario(null, nombre, email, password);
+        Usuario nuevoUsuario = new Usuario(null, nombre, email, password, telefono);
 
-        // Llamada a la API
         apiService.registrarUsuario(nuevoUsuario).enqueue(new Callback<Usuario>() {
             @Override
             public void onResponse(Call<Usuario> call, Response<Usuario> response) {
                 progressBar.setVisibility(View.GONE);
                 btnRegistrar.setEnabled(true);
 
-                if (response.isSuccessful() && response.body() != null) {
-                    // Registro exitoso
-                    Toast.makeText(RegistroActivity.this,
-                            "Cuenta creada correctamente",
-                            Toast.LENGTH_SHORT).show();
-
-                    // Ir a la pantalla de login
-                    Intent intent = new Intent(RegistroActivity.this, LoginActivity.class);
-                    startActivity(intent);
+                if (response.isSuccessful()) {
+                    Toast.makeText(RegistroActivity.this, "Cuenta creada correctamente", Toast.LENGTH_SHORT).show();
                     finish();
                 } else {
-                    // Mostrar mensaje de error del servidor
-                    String errorMsg = "Error al registrar (código: " + response.code() + ")";
-                    try {
-                        if (response.errorBody() != null) {
-                            String errorBody = response.errorBody().string();
-                            if (!errorBody.isEmpty()) {
-                                errorMsg = errorBody;
-                            }
-                        }
-                    } catch (Exception e) {
-                        // Ignorar error al leer el cuerpo
-                    }
-                    Toast.makeText(RegistroActivity.this, errorMsg, Toast.LENGTH_LONG).show();
+                    Toast.makeText(RegistroActivity.this, "Error: El email ya está registrado", Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -106,11 +85,32 @@ public class RegistroActivity extends AppCompatActivity {
             public void onFailure(Call<Usuario> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
                 btnRegistrar.setEnabled(true);
-
-                Toast.makeText(RegistroActivity.this,
-                        "Error de conexión: " + t.getMessage(),
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(RegistroActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private boolean validarCampos(String nombre, String email, String password, String telefono) {
+        if (nombre.isEmpty()) {
+            etNombre.setError("El nombre es obligatorio");
+            return false;
+        }
+        
+        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            etEmail.setError("Introduce un email válido");
+            return false;
+        }
+        
+        if (!PASSWORD_PATTERN.matcher(password).matches()) {
+            etPassword.setError("La contraseña debe tener al menos 8 caracteres, letras y números");
+            return false;
+        }
+        
+        if (telefono.length() < 9) {
+            etTelefono.setError("Introduce un teléfono válido");
+            return false;
+        }
+        
+        return true;
     }
 }

@@ -1,7 +1,7 @@
 package com.wishport.frontend.ui;
 
 import android.app.DatePickerDialog;
-import android.content.SharedPreferences;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.Button;
@@ -11,21 +11,21 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Pista;
 import com.wishport.frontend.models.Reserva;
-import com.wishport.frontend.models.Usuario;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -42,6 +42,7 @@ public class DetallePistaActivity extends AppCompatActivity {
     private TextView tvNombre, tvDeporte, tvEstado, tvId, tvFechaSeleccionada;
     private Button btnSeleccionarFecha, btnReservar;
     private GridLayout gridHorarios;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private Pista pistaActual;
     private ApiService apiService;
     private LocalDate fechaSeleccionada;
@@ -64,8 +65,8 @@ public class DetallePistaActivity extends AppCompatActivity {
         btnReservar = findViewById(R.id.btnReservar);
         gridHorarios = findViewById(R.id.gridHorarios);
         loadingLayout = findViewById(R.id.loadingLayout);
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshDetalle);
 
-        // Usar RetrofitClient centralizado con adapters java.time
         apiService = RetrofitClient.getApiService();
 
         pistaActual = (Pista) getIntent().getSerializableExtra(EXTRA_PISTA);
@@ -79,16 +80,11 @@ public class DetallePistaActivity extends AppCompatActivity {
         }
 
         btnSeleccionarFecha.setOnClickListener(v -> mostrarDatePicker());
-        btnReservar.setOnClickListener(v -> crearReserva());
+        btnReservar.setOnClickListener(v -> verificarYReservar());
 
-        // Inicializar grid de horarios
+        swipeRefreshLayout.setOnRefreshListener(this::cargarReservasExistentes);
+
         inicializarGridHorarios();
-
-        // Limpiar lista al iniciar (por si hay datos de sesión anterior)
-        reservasExistentes.clear();
-
-        // Cargar reservas de la fecha actual al iniciar
-        tvFechaSeleccionada.setText("Fecha: " + fechaSeleccionada.format(DATE_FORMATTER));
         cargarReservasExistentes();
     }
 
@@ -124,113 +120,56 @@ public class DetallePistaActivity extends AppCompatActivity {
                 (view, year, month, dayOfMonth) -> {
                     fechaSeleccionada = LocalDate.of(year, month + 1, dayOfMonth);
                     tvFechaSeleccionada.setText("Fecha: " + fechaSeleccionada.format(DATE_FORMATTER));
-
-                    // LIMPIAR BOTONES INMEDIATAMENTE - antes de cargar datos
                     resetearBotonesHorarios();
-
-                    // Ahora cargar reservas del servidor
                     cargarReservasExistentes();
                 },
                 fechaSeleccionada.getYear(),
                 fechaSeleccionada.getMonthValue() - 1,
                 fechaSeleccionada.getDayOfMonth()
         );
-
-        // No permitir fechas pasadas
         datePickerDialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
         datePickerDialog.show();
     }
 
-    private long loadingStartTime = 0;
-    private static final long MIN_LOADING_TIME = 500; // Mínimo 500ms visible
-
     private void cargarReservasExistentes() {
         if (pistaActual == null) return;
 
-        // Mostrar pantalla de carga
-        loadingStartTime = System.currentTimeMillis();
-        mostrarLoading("Cargando horarios disponibles...");
-
+        swipeRefreshLayout.setRefreshing(true);
         String fechaStr = fechaSeleccionada.format(DATE_FORMATTER);
 
         apiService.obtenerReservasPorPistaYFecha(pistaActual.getIdPista(), fechaStr)
                 .enqueue(new Callback<List<Reserva>>() {
                     @Override
                     public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
+                        swipeRefreshLayout.setRefreshing(false);
                         if (response.isSuccessful() && response.body() != null) {
                             reservasExistentes.clear();
                             reservasExistentes.addAll(response.body());
                             actualizarHorariosDisponibles();
-                        } else {
-                            reservasExistentes.clear();
-                            actualizarHorariosDisponibles();
                         }
-                        ocultarLoadingConDelay();
                     }
 
                     @Override
                     public void onFailure(Call<List<Reserva>> call, Throwable t) {
-                        reservasExistentes.clear();
-                        actualizarHorariosDisponibles();
-                        ocultarLoadingConDelay();
+                        swipeRefreshLayout.setRefreshing(false);
+                        Toast.makeText(DetallePistaActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void ocultarLoadingConDelay() {
-        long elapsed = System.currentTimeMillis() - loadingStartTime;
-        long remaining = MIN_LOADING_TIME - elapsed;
-
-        if (remaining > 0) {
-            // Esperar el tiempo restante para que se vea el loading
-            loadingLayout.postDelayed(() -> ocultarLoading(), remaining);
-        } else {
-            ocultarLoading();
-        }
-    }
-
-    private TextView tvLoadingMensaje;
-
-    private void mostrarLoading(String mensaje) {
-        if (loadingLayout == null) {
-            return;
-        }
-        runOnUiThread(() -> {
-            if (tvLoadingMensaje == null) {
-                tvLoadingMensaje = findViewById(R.id.tvLoadingMensaje);
-            }
-            if (tvLoadingMensaje != null && mensaje != null) {
-                tvLoadingMensaje.setText(mensaje);
-            }
-            loadingLayout.setVisibility(LinearLayout.VISIBLE);
-        });
-    }
-
-    private void ocultarLoading() {
-        runOnUiThread(() -> {
-            loadingLayout.setVisibility(LinearLayout.GONE);
-        });
-    }
-
     private void resetearBotonesHorarios() {
         horaInicioSeleccionada = -1;
-        reservasExistentes.clear(); // Limpiar reservas antiguas inmediatamente
-
         for (Button btn : botonesHorarios) {
-            btn.setEnabled(false); // Deshabilitar hasta saber si están disponibles
+            btn.setEnabled(false);
             btn.setAlpha(0.5f);
             btn.setBackgroundColor(Color.LTGRAY);
         }
     }
 
     private void actualizarHorariosDisponibles() {
-        horaInicioSeleccionada = -1;
-
         ZonedDateTime ahora = ZonedDateTime.now(EUROPE_MADRID);
         int horaActual = ahora.getHour();
-
-        LocalDate hoy = LocalDate.now(EUROPE_MADRID);
-        boolean esHoy = fechaSeleccionada.equals(hoy);
+        boolean esHoy = fechaSeleccionada.equals(LocalDate.now(EUROPE_MADRID));
 
         for (Button btn : botonesHorarios) {
             int hora = (int) btn.getTag();
@@ -251,13 +190,8 @@ public class DetallePistaActivity extends AppCompatActivity {
 
     private boolean isHoraOcupada(int hora) {
         for (Reserva reserva : reservasExistentes) {
-            if (reserva.getHoraInicio() != null && reserva.getHoraFin() != null) {
-                int reservaHoraInicio = reserva.getHoraInicio().getHour();
-                int reservaHoraFin = reserva.getHoraFin().getHour();
-
-                if (hora >= reservaHoraInicio && hora < reservaHoraFin) {
-                    return true;
-                }
+            if (reserva.getHoraInicio() != null) {
+                if (hora == reserva.getHoraInicio().getHour()) return true;
             }
         }
         return false;
@@ -265,8 +199,6 @@ public class DetallePistaActivity extends AppCompatActivity {
 
     private void seleccionarHora(int hora) {
         horaInicioSeleccionada = hora;
-        
-        // Actualizar visual de botones
         for (Button btn : botonesHorarios) {
             int btnHora = (int) btn.getTag();
             if (btnHora == hora) {
@@ -275,91 +207,57 @@ public class DetallePistaActivity extends AppCompatActivity {
                 btn.setBackgroundColor(Color.LTGRAY);
             }
         }
-        
-        Toast.makeText(this, "Horario seleccionado: " + String.format("%02d:00 - %02d:00", hora, hora + 1), Toast.LENGTH_SHORT).show();
     }
 
-    private void crearReserva() {
-        if (pistaActual == null) {
-            Toast.makeText(this, "Error: No hay pista seleccionada", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+    private void verificarYReservar() {
         if (horaInicioSeleccionada == -1) {
             Toast.makeText(this, "Selecciona un horario", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Obtener usuario de SharedPreferences
-        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-        int idUsuario = prefs.getInt("idUsuario", -1);
+        mostrarLoading("Verificando disponibilidad...");
+        String fechaStr = fechaSeleccionada.format(DATE_FORMATTER);
+        String hInicio = String.format("%02d:00", horaInicioSeleccionada);
+        String hFin = String.format("%02d:00", horaInicioSeleccionada + 1);
 
-        if (idUsuario == -1) {
-            Toast.makeText(this, "Error: Usuario no logueado", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        apiService.verificarDisponibilidad(pistaActual.getIdPista(), fechaStr, hInicio, hFin)
+                .enqueue(new Callback<Map<String, Object>>() {
+                    @Override
+                    public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                        ocultarLoading();
+                        if (response.isSuccessful() && response.body() != null) {
+                            boolean disponible = (boolean) response.body().get("disponible");
+                            if (disponible) {
+                                irACheckout();
+                            } else {
+                                Toast.makeText(DetallePistaActivity.this, "Lo sentimos, este horario se acaba de ocupar", Toast.LENGTH_LONG).show();
+                                cargarReservasExistentes();
+                            }
+                        }
+                    }
 
-        // Verificar que el horario no esté ocupado
-        if (isHoraOcupada(horaInicioSeleccionada)) {
-            Toast.makeText(this, "Este horario ya está ocupado", Toast.LENGTH_SHORT).show();
-            return;
-        }
+                    @Override
+                    public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                        ocultarLoading();
+                        Toast.makeText(DetallePistaActivity.this, "Error de verificación", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
 
-        // Crear objetos Usuario y Pista con IDs
-        Usuario usuario = new Usuario();
-        usuario.setIdUsuario(idUsuario);
+    private void irACheckout() {
+        Intent intent = new Intent(this, CheckoutActivity.class);
+        intent.putExtra("EXTRA_PISTA", pistaActual);
+        intent.putExtra("EXTRA_FECHA", fechaSeleccionada.toString());
+        intent.putExtra("EXTRA_HORA_INICIO", horaInicioSeleccionada);
+        startActivity(intent);
+    }
 
-        // Crear reserva con java.time
-        Reserva reserva = new Reserva();
-        reserva.setFecha(fechaSeleccionada);  // LocalDate
-        reserva.setHoraInicio(LocalTime.of(horaInicioSeleccionada, 0));  // LocalTime
-        reserva.setHoraFin(LocalTime.of(horaInicioSeleccionada + 1, 0));  // LocalTime
-        reserva.setIdPista(pistaActual);
-        reserva.setIdUsuario(usuario);
-        reserva.setEstadoReserva("activa");
+    private void mostrarLoading(String mensaje) {
+        loadingLayout.setVisibility(LinearLayout.VISIBLE);
+        ((TextView)findViewById(R.id.tvLoadingMensaje)).setText(mensaje);
+    }
 
-        // Mostrar pantalla de carga
-        mostrarLoading("Procesando reserva...");
-
-        apiService.crearReserva(reserva).enqueue(new Callback<Reserva>() {
-            @Override
-            public void onResponse(Call<Reserva> call, Response<Reserva> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    cargarReservasExistentes();
-                    Toast.makeText(DetallePistaActivity.this, "¡Reserva creada!", Toast.LENGTH_SHORT).show();
-                } else if (response.code() == 409) {
-                    // El backend dice que el horario está ocupado
-                    Toast.makeText(DetallePistaActivity.this,
-                            "Este horario ya fue reservado por otro usuario",
-                            Toast.LENGTH_LONG).show();
-                    // Recargar reservas para actualizar la UI
-                    cargarReservasExistentes();
-
-                } else if (response.code() == 403) {
-                        Toast.makeText(DetallePistaActivity.this,
-                                "¡Límite alcanzado! No puedes tener más de 2 reservas activas.",
-                                Toast.LENGTH_LONG).show();
-
-
-                } else {
-                    Toast.makeText(DetallePistaActivity.this,
-                            "Error al crear reserva: " + response.code(),
-                            Toast.LENGTH_SHORT).show();
-                }
-                // Ocultar pantalla de carga
-                ocultarLoading();
-            }
-
-            @Override
-            public void onFailure(Call<Reserva> call, Throwable t) {
-                Toast.makeText(DetallePistaActivity.this,
-                        "Error de conexión: " + t.getMessage(),
-                        Toast.LENGTH_LONG).show();
-                // Ocultar pantalla de carga
-                ocultarLoading();
-            }
-        });
-
-
+    private void ocultarLoading() {
+        loadingLayout.setVisibility(LinearLayout.GONE);
     }
 }

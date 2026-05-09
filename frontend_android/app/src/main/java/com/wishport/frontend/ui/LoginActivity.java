@@ -13,7 +13,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
 import com.wishport.frontend.api.RetrofitClient;
+import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Usuario;
+
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -28,6 +31,17 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 1. Verificar si ya hay una sesión activa (Auto-Login)
+        String savedToken = TokenManager.getToken(this);
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        String rol = prefs.getString("rolUsuario", null);
+
+        if (savedToken != null && rol != null) {
+            irAPantallaPrincipal(rol);
+            return;
+        }
+
         setContentView(R.layout.activity_pantalla_login);
 
         btnLogin = findViewById(R.id.btnLogin);
@@ -35,22 +49,12 @@ public class LoginActivity extends AppCompatActivity {
         etUsuario = findViewById(R.id.etUsuario);
         etPassword = findViewById(R.id.etPassword);
 
-        // Usar RetrofitClient centralizado (con adapters java.time)
         apiService = RetrofitClient.getApiService();
 
-        btnLogin.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                loginUsuario();
-            }
-        });
-
-        btnIrARegistro.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(LoginActivity.this, RegistroActivity.class);
-                startActivity(intent);
-            }
+        btnLogin.setOnClickListener(view -> loginUsuario());
+        btnIrARegistro.setOnClickListener(view -> {
+            Intent intent = new Intent(LoginActivity.this, RegistroActivity.class);
+            startActivity(intent);
         });
     }
 
@@ -63,48 +67,56 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        Usuario credenciales = new Usuario(null, null, email, password);
+        Usuario credenciales = new Usuario();
+        credenciales.setEmail(email);
+        credenciales.setPassword(password);
 
-        apiService.login(credenciales).enqueue(new Callback<Usuario>() {
+        apiService.login(credenciales).enqueue(new Callback<Map<String, Object>>() {
             @Override
-            public void onResponse(Call<Usuario> call, Response<Usuario> response) {
+            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    Usuario usuarioLogueado = response.body();
+                    Map<String, Object> respuesta = response.body();
 
-                    // Guardar usuario en SharedPreferences
-                    SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putInt("idUsuario", usuarioLogueado.getIdUsuario());
-                    editor.putString("nombreUsuario", usuarioLogueado.getNombre());
-                    editor.putString("emailUsuario", usuarioLogueado.getEmail());
-                    editor.putString("rolUsuario", usuarioLogueado.getRol());
+                    String token = (String) respuesta.get("token");
+                    String nombre = (String) respuesta.get("nombre");
+                    String emailRes = (String) respuesta.get("email");
+                    String rol = (String) respuesta.get("rol");
+                    Double idUsuarioDouble = (Double) respuesta.get("idUsuario");
+                    int idUsuario = idUsuarioDouble != null ? idUsuarioDouble.intValue() : -1;
+
+                    // Guardar token persistente
+                    TokenManager.setToken(LoginActivity.this, token);
+
+                    // Guardar datos de usuario
+                    SharedPreferences.Editor editor = getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit();
+                    editor.putInt("idUsuario", idUsuario);
+                    editor.putString("nombreUsuario", nombre);
+                    editor.putString("emailUsuario", emailRes);
+                    editor.putString("rolUsuario", rol);
                     editor.apply();
 
-                    Toast.makeText(LoginActivity.this,
-                            "Bienvenido " + usuarioLogueado.getNombre(),
-                            Toast.LENGTH_SHORT).show();
-
-                    // Redirigir según el rol
-                    Intent intent;
-                    if ("ADMIN".equals(usuarioLogueado.getRol())) {
-                        intent = new Intent(LoginActivity.this, AdminActivity.class);
-                    } else {
-                        intent = new Intent(LoginActivity.this, PistasActivity.class);
-                    }
-                    startActivity(intent);
+                    Toast.makeText(LoginActivity.this, "Bienvenido " + nombre, Toast.LENGTH_SHORT).show();
+                    irAPantallaPrincipal(rol);
                 } else {
-                    Toast.makeText(LoginActivity.this,
-                            "Email o contraseña incorrectos",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(LoginActivity.this, "Error: Credenciales incorrectas", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<Usuario> call, Throwable t) {
-                Toast.makeText(LoginActivity.this,
-                        "Error de conexión: " + t.getMessage(),
-                        Toast.LENGTH_LONG).show();
+            public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                Toast.makeText(LoginActivity.this, "Error de conexión", Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private void irAPantallaPrincipal(String rol) {
+        Intent intent;
+        if ("ADMIN".equals(rol)) {
+            intent = new Intent(LoginActivity.this, AdminActivity.class);
+        } else {
+            intent = new Intent(LoginActivity.this, PistasActivity.class);
+        }
+        startActivity(intent);
+        finish();
     }
 }
