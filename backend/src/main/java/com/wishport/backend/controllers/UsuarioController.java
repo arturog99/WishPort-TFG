@@ -26,6 +26,7 @@ public class UsuarioController {
     @Autowired
     private JwtUtil jwtUtil;
 
+
     @PostMapping
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario nuevoUsuario) {
         try {
