@@ -14,7 +14,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 public class RetrofitClient {
 
-    public static final String BASE_URL = "http://10.0.2.2:8080/";
+    public static final String BASE_URL = "https://wishport-tfg.onrender.com/";
     private static Retrofit retrofit = null;
     private static ApiService apiService = null;
 

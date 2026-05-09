@@ -56,8 +56,13 @@ public class PistaAdapter extends RecyclerView.Adapter<PistaAdapter.PistaViewHol
         String fotoUrl = pista.getFotoUrl();
         if (fotoUrl != null && !fotoUrl.isEmpty()) {
             if (!fotoUrl.startsWith("http")) {
-                // Es ruta relativa, añadir BASE_URL
-                fotoUrl = RetrofitClient.BASE_URL + fotoUrl;
+                // Es ruta relativa, añadir BASE_URL evitando doble barra
+                String base = RetrofitClient.BASE_URL;
+                if (base.endsWith("/") && fotoUrl.startsWith("/")) {
+                    fotoUrl = base + fotoUrl.substring(1);
+                } else {
+                    fotoUrl = base + fotoUrl;
+                }
             }
         }
 
