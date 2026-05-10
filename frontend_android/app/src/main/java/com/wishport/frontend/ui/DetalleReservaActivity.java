@@ -20,23 +20,23 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
-
-import javax.inject.Inject;
-
-import dagger.hilt.android.AndroidEntryPoint;
+import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Reserva;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * PANTALLA DETALLE DE RESERVA: Muestra el QR y los datos de una reserva ya realizada.
- * Permite al usuario cancelar la reserva si aún no ha pasado la hora.
+ * PANTALLA DETALLE DE RESERVA: Muestra el QR y los datos de una reserva.
+ * Actualizada para soportar Hilt.
  */
 @AndroidEntryPoint
 public class DetalleReservaActivity extends AppCompatActivity {
@@ -61,7 +61,6 @@ public class DetalleReservaActivity extends AppCompatActivity {
 
         vincularVistas();
 
-        // 1. Recuperar la reserva enviada desde la lista
         reserva = (Reserva) getIntent().getSerializableExtra(EXTRA_RESERVA);
         
         if (reserva != null) {
@@ -73,7 +72,6 @@ public class DetalleReservaActivity extends AppCompatActivity {
         }
 
         btnCancelarReserva.setOnClickListener(v -> confirmarCancelacion());
-        findViewById(R.id.btnVolverReservas).setOnClickListener(v -> finish());
     }
 
     private void vincularVistas() {
@@ -89,14 +87,12 @@ public class DetalleReservaActivity extends AppCompatActivity {
     }
 
     private void rellenarDatosPantalla() {
-        // Datos de la pista
         String deporte = (reserva.getIdPista() != null) ? reserva.getIdPista().getDeporte() : "Pista";
         String nombrePista = (reserva.getIdPista() != null) ? reserva.getIdPista().getNombre() : "N/A";
         
         tvDeporte.setText(deporte);
         tvPista.setText(nombrePista);
 
-        // Fecha y Hora formateadas
         String fecha = (reserva.getFecha() != null) ? reserva.getFecha().format(dateFormatter) : "N/A";
         String horaI = (reserva.getHoraInicio() != null) ? reserva.getHoraInicio().format(timeFormatter) : "N/A";
         String horaF = (reserva.getHoraFin() != null) ? reserva.getHoraFin().format(timeFormatter) : "N/A";
@@ -105,10 +101,8 @@ public class DetalleReservaActivity extends AppCompatActivity {
         tvHora.setText(horaI + " - " + horaF);
         tvIdReserva.setText("#" + reserva.getIdReserva());
 
-        // Lógica de colores del Estado
         configurarVisualEstado();
 
-        // Si la reserva ya pasó, no se puede cancelar
         if (esReservaAntigua()) {
             desactivarBotonCancelacion();
         }
@@ -119,19 +113,17 @@ public class DetalleReservaActivity extends AppCompatActivity {
         tvEstado.setText(estado.toUpperCase());
 
         if (estado.equalsIgnoreCase("activa")) {
-            tvEstado.setTextColor(Color.parseColor("#4CAF50")); // Verde
+            tvEstado.setTextColor(Color.parseColor("#4CAF50"));
         } else if (estado.equalsIgnoreCase("cancelada")) {
-            tvEstado.setTextColor(Color.parseColor("#F44336")); // Rojo
+            tvEstado.setTextColor(Color.parseColor("#F44336"));
             desactivarBotonCancelacion();
         } else {
             tvEstado.setTextColor(Color.GRAY);
         }
     }
 
-    /** Comprueba si la fecha actual es posterior a la reserva */
     private boolean esReservaAntigua() {
         if (reserva.getFecha() == null || reserva.getHoraFin() == null) return false;
-        
         ZonedDateTime finReserva = ZonedDateTime.of(reserva.getFecha(), reserva.getHoraFin(), ZoneId.of("Europe/Madrid"));
         return finReserva.isBefore(ZonedDateTime.now(ZoneId.of("Europe/Madrid")));
     }
@@ -142,9 +134,6 @@ public class DetalleReservaActivity extends AppCompatActivity {
         btnCancelarReserva.setText("Finalizada o Cancelada");
     }
 
-    /**
-     * GENERACIÓN DE QR: Convierte el código de texto de la reserva en una imagen.
-     */
     private void generarImagenQR() {
         String data = reserva.getCodigoQr();
         if (data == null || data.isEmpty()) data = "ID-" + reserva.getIdReserva();
@@ -184,7 +173,7 @@ public class DetalleReservaActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful()) {
                     Toast.makeText(DetalleReservaActivity.this, "Reserva cancelada", Toast.LENGTH_SHORT).show();
-                    finish(); // Cerramos y volvemos a la lista
+                    finish();
                 } else {
                     btnCancelarReserva.setEnabled(true);
                     Toast.makeText(DetalleReservaActivity.this, "No se pudo cancelar", Toast.LENGTH_SHORT).show();
@@ -195,7 +184,6 @@ public class DetalleReservaActivity extends AppCompatActivity {
             public void onFailure(Call<Void> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
                 btnCancelarReserva.setEnabled(true);
-                Toast.makeText(DetalleReservaActivity.this, "Error de red", Toast.LENGTH_SHORT).show();
             }
         });
     }

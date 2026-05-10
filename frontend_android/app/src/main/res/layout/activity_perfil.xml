@@ -1,165 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F6F7">
+    android:fitsSystemWindows="true"
+    android:background="#F5F5F5">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:layout_height="match_parent">
 
-
-        <!-- Botón volver pequeño -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnVolverPerfil"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="Volver"
-            android:textAllCaps="false"
-            android:textSize="12sp"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#1F3A5F"
-            app:cornerRadius="10dp"
-            android:layout_marginTop="40dp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"/>
-
-
-        <!-- Título -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Mi perfil"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:textColor="#1F3A5F"
-            android:layout_marginBottom="20dp"
-            android:layout_marginTop="40dp"/>
-
-        <!-- CARD -->
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="6dp"
-            android:backgroundTint="#FFFFFF"
-            android:layout_marginBottom="20dp">
+            android:orientation="vertical"
+            android:padding="24dp">
 
-            <LinearLayout
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mi Perfil"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="24dp"/>
+
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp">
 
-                <!-- Subtítulo -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Información personal"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:textColor="#1F3A5F"
-                    android:layout_marginBottom="16dp"/>
-
-                <!-- Nombre -->
-                <com.google.android.material.textfield.TextInputLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Nombre completo"
-                    app:boxBackgroundMode="outline"
-                    app:boxStrokeColor="#3498DB"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusBottomEnd="12dp">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etNombrePerfil"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textPersonName"/>
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:hint="Nombre completo"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNombrePerfil"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"/>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Email -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Email (no editable)"
-                    android:layout_marginTop="12dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxStrokeColor="#BDC3C7"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusBottomEnd="12dp">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etEmailPerfil"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:enabled="false"
-                        android:textColor="#7F8C8D"
-                        android:inputType="textEmailAddress"/>
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:hint="Email"
+                        android:layout_marginTop="12dp"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etEmailPerfil"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:enabled="false"/>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Teléfono -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Teléfono"
-                    android:layout_marginTop="12dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxStrokeColor="#3498DB"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusBottomEnd="12dp">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etTelefonoPerfil"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="phone"/>
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:hint="Teléfono"
+                        android:layout_marginTop="12dp"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etTelefonoPerfil"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="phone"/>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-            </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
-        </com.google.android.material.card.MaterialCardView>
+            <Button
+                android:id="@+id/btnActualizarPerfil"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Guardar Cambios"/>
 
-        <!-- BOTÓN GUARDAR -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnActualizarPerfil"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Guardar cambios"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#1F3A5F"
-            android:padding="12dp"
-            app:cornerRadius="12dp"/>
+            <ProgressBar
+                android:id="@+id/progressBarPerfil"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                android:layout_marginTop="16dp"/>
 
-        <!-- CERRAR SESIÓN -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCerrarSesionPerfil"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Cerrar sesión"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#C0392B"
-            android:layout_marginTop="10dp"
-            app:cornerRadius="12dp"/>
-
-        <!-- PROGRESS -->
-        <ProgressBar
-            android:id="@+id/progressBarPerfil"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone"
-            android:layout_marginTop="20dp"/>
-
-    </LinearLayout>
-
-</ScrollView>
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

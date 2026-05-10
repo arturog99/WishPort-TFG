@@ -1,90 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/swipeRefreshPistas"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="#F4F6F7">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshPistas"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-
-        <!-- HEADER MODERNO -->
         <LinearLayout
+            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="20dp"
-            android:layout_marginTop="50dp"
-            android:background="#FFFFFF"
-            android:elevation="4dp">
+            android:layout_height="match_parent">
 
-            <TextView
-                android:text="Pistas disponibles"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="#1F3A5F"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"/>
-
-            <!-- Botón perfil -->
-            <ImageButton
-                android:id="@+id/btnPerfil"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:src="@drawable/ic_profile"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Perfil"
-                android:layout_marginEnd="8dp"/>
-
-            <!-- Botón reservas -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnMisReservas"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Reservas"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#1F3A5F"
-                app:cornerRadius="12dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"/>
-        </LinearLayout>
-
-        <!-- SHIMMER -->
-        <com.facebook.shimmer.ShimmerFrameLayout
-            android:id="@+id/shimmerPistas"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:padding="16dp">
-
+            <!-- CABECERA -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="20dp"
+                android:background="#FFFFFF"
+                android:elevation="4dp">
 
-                <include layout="@layout/shimmer_item_pista" />
-                <include layout="@layout/shimmer_item_pista" />
-                <include layout="@layout/shimmer_item_pista" />
-                <include layout="@layout/shimmer_item_pista" />
+                <TextView
+                    android:text="Pistas disponibles"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#1F3A5F"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"/>
+
+                <ImageButton
+                    android:id="@+id/btnPerfil"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@drawable/ic_profile"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Perfil"
+                    android:layout_marginEnd="8dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnMisReservas"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reservas"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#1F3A5F"
+                    app:cornerRadius="12dp"/>
             </LinearLayout>
 
-        </com.facebook.shimmer.ShimmerFrameLayout>
+            <!-- CARGANDO (SHIMMER) -->
+            <com.facebook.shimmer.ShimmerFrameLayout
+                android:id="@+id/shimmerPistas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <include layout="@layout/shimmer_item_pista" />
+                    <include layout="@layout/shimmer_item_pista" />
+                </LinearLayout>
+            </com.facebook.shimmer.ShimmerFrameLayout>
 
-        <!-- LISTA -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerViewPistas"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="12dp"
-            android:clipToPadding="false"/>
-
-    </LinearLayout>
-
-</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerViewPistas"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="12dp"
+                android:clipToPadding="false"/>
+        </LinearLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+</FrameLayout>

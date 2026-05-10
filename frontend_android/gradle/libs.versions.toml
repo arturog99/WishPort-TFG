@@ -8,7 +8,7 @@ material = "1.12.0"
 activity = "1.9.3"
 constraintlayout = "2.2.0"
 retrofit = "2.11.0"
-securityCrypto = "1.1.0-alpha06"
+securityCrypto = "1.0.0"
 shimmer = "0.5.0"
 swiperefresh = "1.1.0"
 hilt = "2.51.1"
@@ -28,7 +28,7 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 shimmer = { group = "com.facebook.shimmer", name = "shimmer", version.ref = "shimmer" }
 swiperefresh = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefresh" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
 lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycle" }
 lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata", version.ref = "lifecycle" }
 

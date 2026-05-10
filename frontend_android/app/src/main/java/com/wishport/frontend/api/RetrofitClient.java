@@ -1,7 +1,10 @@
 package com.wishport.frontend.api;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
@@ -10,6 +13,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 /**
  * MOTOR DE CONEXIÓN (Retrofit): Simplificado para trabajar con Hilt.
+ * Mantenemos soporte para llamadas estáticas mientras termina la migración.
  */
 public class RetrofitClient {
 
@@ -18,7 +22,7 @@ public class RetrofitClient {
 
     /**
      * Devuelve una instancia configurada de Retrofit.
-     * Ahora recibe el cliente y el conversor por parámetros (inyectados por Hilt).
+     * Inyectada por Hilt en la nueva arquitectura.
      */
     public Retrofit getRetrofitInstance(OkHttpClient client, Gson gson) {
         return new Retrofit.Builder()
@@ -29,8 +33,17 @@ public class RetrofitClient {
     }
 
     /**
-     * Crea un OkHttpClient con timeouts razonables para evitar bloqueos indefinidos.
-     * Útil contra cold starts de servidores en la nube (ej. Render).
+     * Crea los adaptadores de fecha para que Java entienda el JSON del servidor.
+     */
+    public static Gson createDefaultGson() {
+        return new GsonBuilder()
+                .registerTypeAdapter(LocalDate.class, LocalDateTimeAdapter.LOCAL_DATE)
+                .registerTypeAdapter(LocalTime.class, LocalDateTimeAdapter.LOCAL_TIME)
+                .create();
+    }
+
+    /**
+     * Cliente OKHttp con timeouts para servidores en la nube.
      */
     public static OkHttpClient createDefaultClient() {
         return new OkHttpClient.Builder()
@@ -41,14 +54,12 @@ public class RetrofitClient {
     }
 
     /**
-     * Mantenemos este método estático por compatibilidad temporal
-     * mientras migramos todas las actividades a Hilt.
+     * MÉTODO DE COMPATIBILIDAD: Permite usar la API en clases que aún no tienen Hilt.
      */
     public static ApiService getApiService() {
-        // En una app 100% Hilt, este método desaparecería.
         return new RetrofitClient().getRetrofitInstance(
             createDefaultClient(),
-            new Gson()
+            createDefaultGson()
         ).create(ApiService.class);
     }
 }

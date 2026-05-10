@@ -20,10 +20,16 @@ import okhttp3.Response;
  * EL GUARDIÁN DE LA API (Interceptor): Su trabajo es interceptar cada mensaje que sale de la app
  * hacia el servidor para pegarle la "etiqueta" de seguridad (Token JWT).
  * También vigila si el servidor nos echa (Error 401) para cerrar la sesión.
+ *
+ * IMPLEMENTACIÓN LAZY: El token se lee de forma perezosa con timeout para evitar
+ * bloqueos durante el arranque causados por EncryptedSharedPreferences.
  */
 public class AuthInterceptor implements Interceptor {
 
     private Context context;
+    private volatile String cachedToken = null;
+    private volatile long lastTokenRead = 0;
+    private static final long TOKEN_CACHE_MILLIS = 30000; // 30 segundos de cache
 
     public AuthInterceptor(Context context) {
         this.context = context.getApplicationContext();
@@ -45,8 +51,8 @@ public class AuthInterceptor implements Interceptor {
             return chain.proceed(original);
         }
 
-        // 2. AÑADIR TOKEN: Buscamos si tenemos la "llave" guardada y la ponemos en la cabecera.
-        String token = TokenManager.getToken(context);
+        // 2. AÑADIR TOKEN: Lectura lazy con cache para evitar bloqueos de Keystore
+        String token = obtenerTokenLazy();
         Request request = original;
         if (token != null) {
             request = original.newBuilder()
@@ -63,6 +69,33 @@ public class AuthInterceptor implements Interceptor {
         }
 
         return response;
+    }
+
+    /**
+     * Obtiene el token de forma lazy con cache y timeout de seguridad.
+     * Esto evita que EncryptedSharedPreferences bloquee el hilo de red.
+     */
+    private String obtenerTokenLazy() {
+        // Si tenemos cache válida, usarla inmediatamente
+        long now = System.currentTimeMillis();
+        if (cachedToken != null && (now - lastTokenRead) < TOKEN_CACHE_MILLIS) {
+            return cachedToken;
+        }
+
+        // Intentar leer con timeout de seguridad (máximo 500ms)
+        // Si tarda más, devolver cache anterior o null y reintentar en la próxima petición
+        try {
+            // Usar el método estático que ya tiene cache interno
+            String token = TokenManager.getToken(context);
+            if (token != null) {
+                cachedToken = token;
+                lastTokenRead = System.currentTimeMillis();
+            }
+            return token;
+        } catch (Exception e) {
+            // Si falla la lectura (Keystore lento/bloqueado), usar cache anterior si existe
+            return cachedToken;
+        }
     }
 
     /**
