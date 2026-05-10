@@ -20,8 +20,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * PANTALLA DE REGISTRO: Permite a los nuevos usuarios crear una cuenta.
- * Incluye validaciones de seguridad para email y contraseña.
- * Migrada a MVVM/Hilt para consistencia con LoginActivity.
+ * Usa AuthViewModel para procesar el registro de forma segura mediante DTOs.
  */
 @AndroidEntryPoint
 public class RegistroActivity extends AppCompatActivity {
@@ -29,18 +28,18 @@ public class RegistroActivity extends AppCompatActivity {
     private EditText etNombre, etEmail, etPassword, etTelefono;
     private Button btnRegistrar;
     private ProgressBar progressBar;
+    private AuthViewModel viewModel;
 
-    // Regla de contraseña: mínimo 8 caracteres, debe contener al menos una letra y un número.
+    // Regla de seguridad: Mínimo 8 caracteres, al menos una letra y un número.
     private static final Pattern PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$");
-
-    private AuthViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_registro);
 
+        // Inicializamos componentes
         etNombre = findViewById(R.id.etNombre);
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPasswordRegistro);
@@ -48,16 +47,23 @@ public class RegistroActivity extends AppCompatActivity {
         btnRegistrar = findViewById(R.id.btnRegistrar);
         progressBar = findViewById(R.id.progressBar);
 
+        // Obtenemos el ViewModel inyectado por Hilt
         viewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
         btnRegistrar.setOnClickListener(v -> intentarRegistro());
-        observarDatos();
+        findViewById(R.id.btnVolverLogin).setOnClickListener(v -> finish());
+
+        // Escuchamos las respuestas del servidor
+        observarEstadoRegistro();
     }
 
-    private void observarDatos() {
+    /**
+     * Suscribe la actividad a los cambios del ViewModel (Éxito, Carga o Error).
+     */
+    private void observarEstadoRegistro() {
         viewModel.registroResponse.observe(this, usuario -> {
-            Toast.makeText(this, "¡Cuenta creada! Ya puedes iniciar sesión.", Toast.LENGTH_SHORT).show();
-            finish();
+            Toast.makeText(this, "¡Cuenta creada con éxito!", Toast.LENGTH_SHORT).show();
+            finish(); // Volver al Login
         });
 
         viewModel.isLoading.observe(this, loading -> {
@@ -72,46 +78,23 @@ public class RegistroActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Valida los datos introducidos y los envía al ViewModel para crear la cuenta.
-     */
     private void intentarRegistro() {
         String nombre = etNombre.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
         String telefono = etTelefono.getText().toString().trim();
 
-        if (!validarFormulario(nombre, email, password, telefono)) {
-            return;
+        if (validarDatos(nombre, email, password, telefono)) {
+            // Delegamos al ViewModel la creación del RegistroRequest y la llamada a la API
+            viewModel.registrar(nombre, email, password, telefono);
         }
-
-        viewModel.registrar(nombre, email, password, telefono);
     }
 
-    /**
-     * Comprueba que todos los campos cumplan con los requisitos de formato y seguridad.
-     */
-    private boolean validarFormulario(String nombre, String email, String password, String telefono) {
-        if (nombre.isEmpty()) {
-            etNombre.setError("Escribe tu nombre completo");
-            return false;
-        }
-        
-        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            etEmail.setError("Introduce un email válido");
-            return false;
-        }
-        
-        if (!PASSWORD_PATTERN.matcher(password).matches()) {
-            etPassword.setError("Mínimo 8 caracteres, con letras y números");
-            return false;
-        }
-        
-        if (telefono.length() < 9) {
-            etTelefono.setError("Introduce un número de teléfono válido");
-            return false;
-        }
-        
+    private boolean validarDatos(String nombre, String email, String password, String telefono) {
+        if (nombre.isEmpty()) { etNombre.setError("Escribe tu nombre"); return false; }
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) { etEmail.setError("Email inválido"); return false; }
+        if (!PASSWORD_PATTERN.matcher(password).matches()) { etPassword.setError("Contraseña poco segura"); return false; }
+        if (telefono.length() < 9) { etTelefono.setError("Teléfono demasiado corto"); return false; }
         return true;
     }
 }

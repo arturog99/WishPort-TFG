@@ -72,6 +72,7 @@ public class CheckoutActivity extends AppCompatActivity {
 
         // 5. Acción al pulsar el botón de pago
         btnPagar.setOnClickListener(v -> procesarPago());
+        findViewById(R.id.btnCancelarCheckout).setOnClickListener(v -> finish());
     }
 
     private void vincularVistas() {

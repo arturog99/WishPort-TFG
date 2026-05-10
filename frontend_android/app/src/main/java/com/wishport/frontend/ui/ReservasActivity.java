@@ -74,6 +74,8 @@ public class ReservasActivity extends AppCompatActivity {
 
         // 5. Carga inicial
         obtenerReservasDelServidor();
+
+        findViewById(R.id.btnVolverPistas).setOnClickListener(v -> finish());
     }
 
     private void vincularVistas() {

@@ -84,11 +84,17 @@ public class DetallePistaActivity extends AppCompatActivity {
         btnSeleccionarFecha.setOnClickListener(v -> mostrarCalendario());
         btnReservar.setOnClickListener(v -> verificarDisponibilidadYProceder());
         swipeRefreshLayout.setOnRefreshListener(this::cargarHorariosOcupados);
+        findViewById(R.id.btnVolverPistas).setOnClickListener(v -> finish());
 
         // 4. Preparar el cuadrante de horas (botones del 8 al 22)
         prepararGridHorarios();
-        
-        // 5. Cargar qué horas están ya reservadas para hoy
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Recargar ocupación cada vez que volvemos a esta pantalla
+        // (por ejemplo tras hacer checkout y volver atrás)
         cargarHorariosOcupados();
     }
 

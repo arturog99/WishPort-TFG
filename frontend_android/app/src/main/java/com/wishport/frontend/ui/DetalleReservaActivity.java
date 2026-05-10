@@ -73,6 +73,7 @@ public class DetalleReservaActivity extends AppCompatActivity {
         }
 
         btnCancelarReserva.setOnClickListener(v -> confirmarCancelacion());
+        findViewById(R.id.btnVolverReservas).setOnClickListener(v -> finish());
     }
 
     private void vincularVistas() {

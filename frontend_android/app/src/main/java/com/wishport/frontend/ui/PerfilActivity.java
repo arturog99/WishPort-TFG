@@ -1,5 +1,6 @@
 package com.wishport.frontend.ui;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
@@ -12,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.textfield.TextInputEditText;
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
+import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Usuario;
 
 import javax.inject.Inject;
@@ -68,6 +70,8 @@ public class PerfilActivity extends AppCompatActivity {
 
         // 4. Configurar la acción al pulsar el botón de guardar cambios
         btnActualizar.setOnClickListener(v -> intentarActualizarPerfil());
+        findViewById(R.id.btnVolverPerfil).setOnClickListener(v -> finish());
+        findViewById(R.id.btnCerrarSesionPerfil).setOnClickListener(v -> cerrarSesion());
     }
 
     /** Conecta las variables Java con los IDs definidos en el XML (activity_perfil.xml) */
@@ -166,5 +170,17 @@ public class PerfilActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit();
         editor.putString("nombreUsuario", nombre);
         editor.apply();
+    }
+
+    /** Cierra la sesión del usuario y vuelve al Login */
+    private void cerrarSesion() {
+        SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
+        prefs.edit().clear().apply();
+        TokenManager.clear(this);
+
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 }
