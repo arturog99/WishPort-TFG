@@ -19,6 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Controlador para gestionar las operaciones de reservas de pistas.
+ */
 @RestController
 @RequestMapping("/api/reservas")
 public class ReservaController {
@@ -26,66 +29,66 @@ public class ReservaController {
     @Autowired
     private ReservaRepository reservaRepository;
 
-    // GET todas las reservas (solo ADMIN)
+    /**
+     * Obtiene todas las reservas (solo accesible para administradores).
+     */
     @GetMapping
     public List<Reserva> obtenerTodasLasReservas(HttpServletRequest request) {
-        String rol = (String) request.getAttribute("rol");
-        if (!"ADMIN".equals(rol)) {
+        if (!"ADMIN".equals(request.getAttribute("rol"))) {
             throw new org.springframework.security.access.AccessDeniedException("Acceso denegado");
         }
         return reservaRepository.findAll();
     }
 
-    // GET reservas del día de hoy (para panel de administración - solo ADMIN)
+    /**
+     * Obtiene las reservas del día de hoy (solo accesible para administradores).
+     */
     @GetMapping("/hoy")
     public List<Reserva> obtenerReservasDeHoy(HttpServletRequest request) {
-        String rol = (String) request.getAttribute("rol");
-        if (!"ADMIN".equals(rol)) {
+        if (!"ADMIN".equals(request.getAttribute("rol"))) {
             throw new org.springframework.security.access.AccessDeniedException("Acceso denegado");
         }
-        LocalDate hoy = LocalDate.now();
-        return reservaRepository.findByFecha(hoy);
+        return reservaRepository.findByFecha(LocalDate.now());
     }
 
-    // GET reservas del usuario autenticado
+    /**
+     * Obtiene todas las reservas de un usuario.
+     * Actualiza automáticamente el estado a "completada" si la reserva ya ha pasado.
+     */
     @GetMapping("/usuario/{idUsuario}")
     @Transactional
-    public List<Reserva> obtenerReservasPorUsuario(@PathVariable Integer idUsuario,
-                                                   HttpServletRequest request) {
+    public List<Reserva> obtenerReservasPorUsuario(@PathVariable Integer idUsuario, HttpServletRequest request) {
         Integer idUsuarioToken = (Integer) request.getAttribute("idUsuario");
         String rol = (String) request.getAttribute("rol");
 
-        // Solo puede ver sus propias reservas o si es ADMIN
+        // Solo se puede ver las propias reservas o si se es admin
         if (!idUsuario.equals(idUsuarioToken) && !"ADMIN".equals(rol)) {
             throw new org.springframework.security.access.AccessDeniedException("Acceso denegado");
         }
 
         List<Reserva> reservas = reservaRepository.findByIdUsuario_IdUsuario(idUsuario);
         ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("Europe/Madrid"));
-        boolean hayActualizaciones = false;
+        boolean actualizar = false;
 
+        // Cambiar estado a 'completada' si la fecha/hora ya ha pasado
         for (Reserva reserva : reservas) {
             if ("activa".equals(reserva.getEstadoReserva())) {
-                ZonedDateTime finReserva = ZonedDateTime.of(
-                    reserva.getFecha(),
-                    reserva.getHoraFin(),
-                    ZoneId.of("Europe/Madrid")
-                );
+                ZonedDateTime finReserva = ZonedDateTime.of(reserva.getFecha(), reserva.getHoraFin(), ZoneId.of("Europe/Madrid"));
                 if (finReserva.isBefore(ahora)) {
                     reserva.setEstadoReserva("completada");
-                    hayActualizaciones = true;
+                    actualizar = true;
                 }
             }
         }
 
-        if (hayActualizaciones) {
-            reservaRepository.saveAll(reservas);
-        }
-
+        if (actualizar) reservaRepository.saveAll(reservas);
+        
         return reservas;
     }
 
-    // GET reservas por pista y fecha (público para consultar disponibilidad)
+    /**
+     * Obtiene reservas para una pista y fecha específicas. Útil para el calendario público.
+     */
     @GetMapping("/pista/{idPista}/fecha/{fecha}")
     public List<Reserva> obtenerReservasPorPistaYFecha(
             @PathVariable Integer idPista,
@@ -93,7 +96,9 @@ public class ReservaController {
         return reservaRepository.findByPistaAndFecha(idPista, fecha);
     }
 
-    // POST crear reserva (usuario autenticado)
+    /**
+     * Crea una nueva reserva para el usuario autenticado.
+     */
     @PostMapping
     @Transactional
     public ResponseEntity<?> crearReserva(@RequestBody Reserva reserva, HttpServletRequest request) {
@@ -102,66 +107,54 @@ public class ReservaController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token no válido");
         }
 
-        // Sustituir el usuario del body por el autenticado (evita spoofing)
-        Usuario usuarioAutenticado = new Usuario(idUsuarioToken);
-        reserva.setIdUsuario(usuarioAutenticado);
+        // Forzamos que la reserva se asigne al usuario que hace la petición
+        reserva.setIdUsuario(new Usuario(idUsuarioToken));
 
-        long activas = reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(
-                idUsuarioToken, "activa"
-        );
-
-        if (activas >= 2) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "LIMITE_ALCANZADO");
-            error.put("mensaje", "Ya tienes 2 reservas activas. Juega tus partidos para poder reservar más.");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+        // Validar límite de reservas activas
+        if (reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(idUsuarioToken, "activa") >= 2) {
+            return error(HttpStatus.FORBIDDEN, "LIMITE_ALCANZADO", "Ya tienes 2 reservas activas.");
         }
 
-        List<Reserva> reservasExistentes = reservaRepository.findReservasSolapadas(
-                reserva.getIdPista().getIdPista(),
-                reserva.getFecha(),
-                reserva.getHoraInicio(),
-                reserva.getHoraFin()
+        // Validar que el horario no esté ocupado
+        List<Reserva> solapadas = reservaRepository.findReservasSolapadas(
+                reserva.getIdPista().getIdPista(), reserva.getFecha(), reserva.getHoraInicio(), reserva.getHoraFin()
         );
 
-        if (!reservasExistentes.isEmpty()) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "HORARIO_OCUPADO");
-            error.put("mensaje", "Este horario ya está reservado");
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+        if (!solapadas.isEmpty()) {
+            return error(HttpStatus.CONFLICT, "HORARIO_OCUPADO", "Este horario ya está reservado");
         }
 
-        String codigoQR = "RESERVA-" + reserva.getIdPista().getIdPista() + "-" +
-                idUsuarioToken + "-" +
-                System.currentTimeMillis();
-        reserva.setCodigoQr(codigoQR);
+        // Generar QR y guardar
+        reserva.setCodigoQr("RSV-" + reserva.getIdPista().getIdPista() + "-" + idUsuarioToken + "-" + System.currentTimeMillis());
         reserva.setEstadoReserva("activa");
-        Reserva nuevaReserva = reservaRepository.save(reserva);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(reservaRepository.save(reserva));
     }
 
-    // DELETE eliminar reserva por ID (solo propietario o ADMIN)
+    /**
+     * Elimina una reserva (solo el propietario o un admin pueden hacerlo).
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminarReserva(@PathVariable Integer id, HttpServletRequest request) {
-        Integer idUsuarioToken = (Integer) request.getAttribute("idUsuario");
-        String rol = (String) request.getAttribute("rol");
-
         Reserva reserva = reservaRepository.findById(id).orElse(null);
         if (reserva == null) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "RESERVA_NO_ENCONTRADA");
-            error.put("mensaje", "La reserva no existe");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return error(HttpStatus.NOT_FOUND, "RESERVA_NO_ENCONTRADA", "La reserva no existe");
         }
 
-        // Verificar propiedad
-        if (!idUsuarioToken.equals(reserva.getIdUsuario().getIdUsuario()) && !"ADMIN".equals(rol)) {
+        // Validar permisos
+        if (!reserva.getIdUsuario().getIdUsuario().equals(request.getAttribute("idUsuario")) && !"ADMIN".equals(request.getAttribute("rol"))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No puedes cancelar una reserva ajena");
         }
 
         reservaRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-}
 
+    // Método de ayuda para devolver JSON de errores fácilmente
+    private ResponseEntity<?> error(HttpStatus status, String code, String message) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", code);
+        error.put("mensaje", message);
+        return ResponseEntity.status(status).body(error);
+    }
+}

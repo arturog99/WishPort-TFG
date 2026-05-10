@@ -2,49 +2,67 @@ package com.wishport.backend.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-
 import com.wishport.backend.entities.Reserva;
 
+/**
+ * Data Transfer Object (DTO) para la entidad Reserva.
+ * Se utiliza para enviar los datos de una reserva al cliente (frontend/móvil)
+ * de forma aplanada y segura, sin enviar la entidad completa y evitando
+ * posibles bucles infinitos por las relaciones JPA o enviar datos innecesarios.
+ */
 public class ReservaDTO {
+    
     private Integer idReserva;
-    private LocalDate fecha;        // ISO 8601: 2026-04-21
-    private LocalTime horaInicio;   // ISO 8601: 09:00:00
-    private LocalTime horaFin;      // ISO 8601: 10:00:00
+    
+    // Las fechas y horas en el DTO se serializan en formato ISO 8601 automáticamente por Jackson
+    private LocalDate fecha;        // Ejemplo: 2026-04-21
+    private LocalTime horaInicio;   // Ejemplo: 09:00:00
+    private LocalTime horaFin;      // Ejemplo: 10:00:00
+    
     private String codigoQr;
     private String estadoReserva;
+    
+    // Datos aplanados de la Pista
     private Integer idPista;
     private String nombrePista;
+    
+    // Datos aplanados del Usuario
     private Integer idUsuario;
     private String nombreUsuario;
 
-    private static final ZoneId EUROPE_MADRID = ZoneId.of("Europe/Madrid");
-
+    /**
+     * Constructor vacío requerido por Jackson para la deserialización.
+     */
     public ReservaDTO() {}
 
+    /**
+     * Constructor que mapea directamente desde la entidad Reserva al DTO.
+     * @param reserva La entidad Reserva original extraída de la base de datos.
+     */
     public ReservaDTO(Reserva reserva) {
         this.idReserva = reserva.getIdReserva();
         this.codigoQr = reserva.getCodigoQr();
         this.estadoReserva = reserva.getEstadoReserva();
 
+        // Extraer solo la información necesaria de la pista
         if (reserva.getIdPista() != null) {
             this.idPista = reserva.getIdPista().getIdPista();
             this.nombrePista = reserva.getIdPista().getNombre();
         }
 
+        // Extraer solo la información necesaria del usuario
         if (reserva.getIdUsuario() != null) {
             this.idUsuario = reserva.getIdUsuario().getIdUsuario();
             this.nombreUsuario = reserva.getIdUsuario().getNombre();
         }
 
-        // java.time: usar directamente LocalDate y LocalTime
         this.fecha = reserva.getFecha();
         this.horaInicio = reserva.getHoraInicio();
         this.horaFin = reserva.getHoraFin();
     }
 
-    // Getters y Setters
+    // --- Getters y Setters ---
+
     public Integer getIdReserva() { return idReserva; }
     public void setIdReserva(Integer idReserva) { this.idReserva = idReserva; }
 
