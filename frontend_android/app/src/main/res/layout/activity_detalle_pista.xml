@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/swipeRefreshDetalle"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#F8FAFC"
     android:fitsSystemWindows="true">
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- CONTENIDO -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -21,103 +24,128 @@
                 android:padding="24dp"
                 android:gravity="center_horizontal">
 
+                <!-- TITULO -->
                 <TextView
                     android:id="@+id/tvDetalleNombre"
-                    android:textSize="28sp"
+                    android:textSize="30sp"
                     android:textStyle="bold"
+                    android:textColor="#0F172A"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
                 <TextView
                     android:id="@+id/tvDetalleDeporte"
-                    android:textSize="18sp"
-                    android:layout_marginTop="16dp"
+                    android:textSize="16sp"
+                    android:textColor="#475569"
+                    android:layout_marginTop="12dp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
                 <TextView
                     android:id="@+id/tvDetalleEstado"
-                    android:textSize="18sp"
-                    android:layout_marginTop="8dp"
+                    android:textSize="15sp"
+                    android:textColor="#1F3A5F"
+                    android:layout_marginTop="6dp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
                 <TextView
                     android:id="@+id/tvDetalleId"
-                    android:textSize="14sp"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp"
+                    android:textColor="#94A3B8"
+                    android:layout_marginTop="6dp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
-                <TextView
-                    android:text="Selecciona fecha y horario:"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginTop="24dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-
-                <Button
-                    android:id="@+id/btnSeleccionarFecha"
-                    android:text="Seleccionar Fecha"
-                    android:layout_marginTop="8dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-
-                <TextView
-                    android:id="@+id/tvFechaSeleccionada"
-                    android:text="Ninguna fecha seleccionada"
-                    android:textSize="14sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-
-                <TextView
-                    android:text="Horarios disponibles (8:00 - 22:00):"
-                    android:textSize="14sp"
-                    android:layout_marginTop="16dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-
-                <GridLayout
-                    android:id="@+id/gridHorarios"
+                <!-- CARD -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:columnCount="4"
-                    android:alignmentMode="alignMargins"/>
+                    android:orientation="vertical"
+                    android:layout_marginTop="28dp"
+                    android:background="#FFFFFF"
+                    android:elevation="6dp"
+                    android:padding="16dp">
 
-                <Button
+                    <TextView
+                        android:text="Selecciona fecha y horario"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F172A"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSeleccionarFecha"
+                        android:text="Seleccionar fecha"
+                        android:layout_marginTop="12dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#1F3A5F"
+                        app:cornerRadius="12dp"/>
+
+                    <TextView
+                        android:id="@+id/tvFechaSeleccionada"
+                        android:text="Ninguna fecha seleccionada"
+                        android:textSize="13sp"
+                        android:textColor="#64748B"
+                        android:layout_marginTop="6dp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+
+                    <TextView
+                        android:text="Horarios disponibles (8:00 - 22:00)"
+                        android:textSize="13sp"
+                        android:textColor="#475569"
+                        android:layout_marginTop="16dp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+
+                    <GridLayout
+                        android:id="@+id/gridHorarios"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:columnCount="4"
+                        android:alignmentMode="alignMargins"/>
+
+                </LinearLayout>
+
+                <!-- BOTONES -->
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnReservar"
                     android:text="Reservar"
-                    android:layout_marginTop="32dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-
-                <Button
-                    android:id="@+id/btnVolverPistas"
-                    android:text="Volver a pistas"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="28dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    style="?attr/materialButtonOutlinedStyle"/>
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#10B981"
+                    app:cornerRadius="12dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVolverPistas"
+                    android:text="Volver a pistas"
+                    android:layout_marginTop="10dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:textColor="#1F3A5F"
+                    app:strokeColor="#CBD5E1"
+                    app:cornerRadius="12dp"/>
 
             </LinearLayout>
         </ScrollView>
 
-        <!-- Pantalla de carga (opcional con SwipeRefresh, pero mantenida para feedback inicial) -->
+        <!-- LOADING -->
         <LinearLayout
             android:id="@+id/loadingLayout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center"
-            android:background="#CCFFFFFF"
-            android:clickable="true"
-            android:focusable="true"
-            android:visibility="gone"
-            android:elevation="10dp">
+            android:background="#80FFFFFF"
+            android:visibility="gone">
 
             <ProgressBar
                 android:layout_width="wrap_content"
@@ -130,8 +158,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="Cargando horarios..."
-                android:textSize="16sp"/>
+                android:textColor="#0F172A"
+                android:textSize="14sp"/>
 
         </LinearLayout>
+
     </FrameLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

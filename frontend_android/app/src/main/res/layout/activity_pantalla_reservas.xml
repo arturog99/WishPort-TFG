@@ -1,65 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/swipeRefreshLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
-    android:fitsSystemWindows="true">
+    android:background="#F4F6F7">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- HEADER -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="16dp">
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="16dp"
+            android:elevation="4dp"
+            android:layout_marginTop="50dp">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_weight="1"
+            <!-- FILA: título + botón -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Mis Reservas"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <Button
-                android:id="@+id/btnVolverPistas"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Volver"
-                style="?attr/materialButtonOutlinedStyle"/>
+                <!-- TÍTULO -->
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Mis reservas"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#1F3A5F" />
+
+                <!-- BOTÓN VOLVER -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVolverPistas"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Volver"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#1F3A5F"
+                    app:cornerRadius="10dp"/>
+            </LinearLayout>
 
         </LinearLayout>
 
+        <!-- SHIMMER -->
         <com.facebook.shimmer.ShimmerFrameLayout
             android:id="@+id/shimmerReservas"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone">
+            android:visibility="gone"
+            android:padding="16dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
+
                 <include layout="@layout/shimmer_item_reserva" />
                 <include layout="@layout/shimmer_item_reserva" />
                 <include layout="@layout/shimmer_item_reserva" />
+
             </LinearLayout>
         </com.facebook.shimmer.ShimmerFrameLayout>
 
+        <!-- CONTENIDO -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <!-- Lista -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerViewReservas"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:padding="8dp"
+                android:padding="12dp"
                 android:clipToPadding="false"/>
 
             <!-- Empty State -->
@@ -78,8 +103,19 @@
                     android:text="Aún no tienes reservas"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="#757575" />
+                    android:textColor="#7F8C8D"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reserva una pista para empezar"
+                    android:textSize="14sp"
+                    android:textColor="#BDC3C7"/>
             </LinearLayout>
+
         </FrameLayout>
+
     </LinearLayout>
+
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
