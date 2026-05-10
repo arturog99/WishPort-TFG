@@ -80,12 +80,11 @@ UI (Activities) ➔ ViewModels ➔ Repositories ➔ ApiService (Retrofit) ➔ Ba
 
 ## 🛡️ Cuentas de Prueba
 
-Para facilitar la evaluación del proyecto, la base de datos cuenta con estos perfiles preconfigurados:
+Para facilitar la evaluación del proyecto, la base de datos cuenta con este perfil preconfigurado:
 
 | Rol | Email | Password |
 | --- | --- | --- |
-| **Administrador** (Validación QR) | admin@wishport.com | admin123 |
-| **Usuario normal** (Reservas) | usuario@prueba.com | 1234 |
+| **Usuario normal** (Reservas) | usuario@prueba.com | prueba1234 |
 
 *(Alternativamente, puedes registrar un nuevo usuario desde la pantalla inicial).*
 
