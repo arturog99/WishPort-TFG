@@ -97,6 +97,23 @@ public class ReservaController {
     }
 
     /**
+     * Verifica si una pista está disponible en un horario concreto.
+     * Devuelve {disponible: true} si no hay reservas solapadas.
+     */
+    @GetMapping("/disponibilidad")
+    public ResponseEntity<Map<String, Object>> verificarDisponibilidad(
+            @RequestParam Integer idPista,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaFin) {
+
+        List<Reserva> solapadas = reservaRepository.findReservasSolapadas(idPista, fecha, horaInicio, horaFin);
+        Map<String, Object> resultado = new HashMap<>();
+        resultado.put("disponible", solapadas.isEmpty());
+        return ResponseEntity.ok(resultado);
+    }
+
+    /**
      * Crea una nueva reserva para el usuario autenticado.
      */
     @PostMapping
