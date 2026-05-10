@@ -21,7 +21,10 @@ import com.google.zxing.integration.android.IntentResult;
 import com.wishport.frontend.R;
 import com.wishport.frontend.adapters.ReservaAdapter;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Reserva;
 
@@ -37,6 +40,7 @@ import retrofit2.Response;
  * PANTALLA DE ADMINISTRADOR: Permite gestionar las reservas del día y validar accesos mediante QR.
  * Solo accesible para usuarios con el rol "ADMIN".
  */
+@AndroidEntryPoint
 public class AdminActivity extends AppCompatActivity {
 
     private static final int CAMERA_PERMISSION_CODE = 100;
@@ -46,7 +50,7 @@ public class AdminActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private View emptyStateLayout;
 
-    private ApiService apiService;
+    @Inject ApiService apiService;
     private List<Reserva> reservasHoy = new ArrayList<>();
 
     @Override
@@ -65,7 +69,7 @@ public class AdminActivity extends AppCompatActivity {
         reservaAdapter = new ReservaAdapter(new ArrayList<>());
         recyclerViewReservas.setAdapter(reservaAdapter);
 
-        apiService = RetrofitClient.getApiService();
+        // apiService inyectado por Hilt (con AuthInterceptor + timeouts)
 
         // 4. Configurar botones
         findViewById(R.id.btnLogout).setOnClickListener(v -> hacerLogout());

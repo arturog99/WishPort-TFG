@@ -16,7 +16,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.models.Pista;
 import com.wishport.frontend.models.Reserva;
 import com.wishport.frontend.models.Usuario;
@@ -32,6 +35,7 @@ import retrofit2.Response;
  * PANTALLA DE PAGO (Checkout): Simula el proceso de pago y confirma la reserva.
  * Incluye validaciones visuales para la tarjeta y envía los datos finales al servidor.
  */
+@AndroidEntryPoint
 public class CheckoutActivity extends AppCompatActivity {
 
     // Componentes de la interfaz
@@ -44,6 +48,8 @@ public class CheckoutActivity extends AppCompatActivity {
     private Pista pista;
     private String fechaSeleccionadaStr;
     private int horaInicio;
+
+    @Inject ApiService apiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -161,8 +167,7 @@ public class CheckoutActivity extends AppCompatActivity {
         nuevaReserva.setIdUsuario(usuarioReserva);
         nuevaReserva.setEstadoReserva("activa");
 
-        // Llamamos a la API
-        ApiService apiService = RetrofitClient.getApiService();
+        // Llamamos a la API (apiService inyectado por Hilt)
         apiService.crearReserva(nuevaReserva).enqueue(new Callback<Reserva>() {
             @Override
             public void onResponse(Call<Reserva> call, Response<Reserva> response) {
@@ -177,7 +182,13 @@ public class CheckoutActivity extends AppCompatActivity {
                     finish(); // Cerramos esta pantalla para que no pueda volver al pago
                 } else {
                     btnPagar.setEnabled(true);
-                    Toast.makeText(CheckoutActivity.this, "Error: El horario ya no está disponible", Toast.LENGTH_LONG).show();
+                    String msg = "Error del servidor (" + response.code() + ")";
+                    if (response.code() == 409) {
+                        msg = "El horario ya no está disponible";
+                    } else if (response.code() == 401 || response.code() == 403) {
+                        msg = "Sesión expirada. Vuelve a iniciar sesión.";
+                    }
+                    Toast.makeText(CheckoutActivity.this, msg, Toast.LENGTH_LONG).show();
                 }
             }
 

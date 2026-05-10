@@ -34,9 +34,14 @@ public class AuthInterceptor implements Interceptor {
     public Response intercept(@NonNull Chain chain) throws IOException {
         Request original = chain.request();
         String path = original.url().encodedPath();
+        String method = original.method();
 
-        // 1. EXCEPCIONES: No añadimos token en Login o cuando alguien se está registrando.
-        if (path.contains("/api/usuarios/login") || (path.contains("/api/usuarios") && original.method().equals("POST"))) {
+        // 1. EXCEPCIONES: No añadimos token en endpoints públicos (Login, Registro, Disponibilidad)
+        boolean esPublico = path.contains("/api/usuarios/login")
+                || (path.contains("/api/usuarios") && method.equals("POST"))
+                || path.contains("/api/reservas/disponibilidad");
+
+        if (esPublico) {
             return chain.proceed(original);
         }
 

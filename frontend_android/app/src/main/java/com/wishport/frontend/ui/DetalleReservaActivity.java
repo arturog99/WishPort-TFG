@@ -20,7 +20,10 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.models.Reserva;
 
 import java.time.ZoneId;
@@ -35,6 +38,7 @@ import retrofit2.Response;
  * PANTALLA DETALLE DE RESERVA: Muestra el QR y los datos de una reserva ya realizada.
  * Permite al usuario cancelar la reserva si aún no ha pasado la hora.
  */
+@AndroidEntryPoint
 public class DetalleReservaActivity extends AppCompatActivity {
 
     public static final String EXTRA_RESERVA = "extra_reserva";
@@ -47,6 +51,8 @@ public class DetalleReservaActivity extends AppCompatActivity {
     private Reserva reserva;
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+
+    @Inject ApiService apiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -171,7 +177,7 @@ public class DetalleReservaActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         btnCancelarReserva.setEnabled(false);
 
-        RetrofitClient.getApiService().cancelarReserva(reserva.getIdReserva()).enqueue(new Callback<Void>() {
+        apiService.cancelarReserva(reserva.getIdReserva()).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 progressBar.setVisibility(View.GONE);

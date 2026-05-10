@@ -15,7 +15,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.models.Pista;
 import com.wishport.frontend.models.Reserva;
 
@@ -35,6 +37,7 @@ import retrofit2.Response;
  * PANTALLA DETALLE PISTA: Permite ver info de una pista y seleccionar horario para reservar.
  * Gestiona el cuadrante de horarios y verifica disponibilidad antes de ir al pago.
  */
+@AndroidEntryPoint
 public class DetallePistaActivity extends AppCompatActivity {
 
     public static final String EXTRA_PISTA = "extra_pista";
@@ -52,7 +55,7 @@ public class DetallePistaActivity extends AppCompatActivity {
     private LinearLayout loadingLayout;
 
     private Pista pistaActual;
-    private ApiService apiService;
+    @Inject ApiService apiService;
     private LocalDate fechaSeleccionada;
     private int horaInicioSeleccionada = -1;
     
@@ -67,7 +70,7 @@ public class DetallePistaActivity extends AppCompatActivity {
         // 1. Inicializar vistas
         vincularVistas();
 
-        apiService = RetrofitClient.getApiService();
+        // apiService inyectado por Hilt (con AuthInterceptor + timeouts)
 
         // 2. Recuperar la pista que nos pasaron desde la lista
         pistaActual = (Pista) getIntent().getSerializableExtra(EXTRA_PISTA);
@@ -163,14 +166,21 @@ public class DetallePistaActivity extends AppCompatActivity {
                         swipeRefreshLayout.setRefreshing(false);
                         if (response.isSuccessful() && response.body() != null) {
                             reservasExistentes = response.body();
-                            refrescarEstadoBotones();
+                        } else {
+                            reservasExistentes = new ArrayList<>();
+                            Toast.makeText(DetallePistaActivity.this,
+                                    "No se pudo cargar ocupación. Horarios mostrados sin garantía.", Toast.LENGTH_LONG).show();
                         }
+                        refrescarEstadoBotones();
                     }
 
                     @Override
                     public void onFailure(Call<List<Reserva>> call, Throwable t) {
                         swipeRefreshLayout.setRefreshing(false);
-                        Toast.makeText(DetallePistaActivity.this, "Error de red al cargar horarios", Toast.LENGTH_SHORT).show();
+                        reservasExistentes = new ArrayList<>();
+                        refrescarEstadoBotones();
+                        Toast.makeText(DetallePistaActivity.this,
+                                "Error de red. Puedes intentar reservar; se verificará al pagar.", Toast.LENGTH_LONG).show();
                     }
                 });
     }
@@ -243,20 +253,25 @@ public class DetallePistaActivity extends AppCompatActivity {
                     public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                         ocultarLoading();
                         if (response.isSuccessful() && response.body() != null) {
-                            boolean libre = (boolean) response.body().get("disponible");
+                            Object disponible = response.body().get("disponible");
+                            boolean libre = disponible instanceof Boolean ? (Boolean) disponible : false;
                             if (libre) {
                                 irAPantallaDePago();
                             } else {
                                 Toast.makeText(DetallePistaActivity.this, "¡Vaya! Alguien acaba de reservar esa hora.", Toast.LENGTH_LONG).show();
                                 cargarHorariosOcupados(); // Refrescar para mostrar la realidad
                             }
+                        } else {
+                            Toast.makeText(DetallePistaActivity.this,
+                                    "Error del servidor (" + response.code() + "). Inténtalo de nuevo.", Toast.LENGTH_LONG).show();
                         }
                     }
 
                     @Override
                     public void onFailure(Call<Map<String, Object>> call, Throwable t) {
                         ocultarLoading();
-                        Toast.makeText(DetallePistaActivity.this, "Fallo al verificar", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DetallePistaActivity.this,
+                                "Error de conexión: " + t.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
     }

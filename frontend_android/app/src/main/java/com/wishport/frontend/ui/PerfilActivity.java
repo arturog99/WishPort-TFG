@@ -12,9 +12,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.textfield.TextInputEditText;
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
 import com.wishport.frontend.models.Usuario;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -22,16 +24,18 @@ import retrofit2.Response;
 /**
  * PANTALLA DE PERFIL: Permite al usuario consultar y modificar sus datos personales.
  * Muestra información como nombre, email (solo lectura) y teléfono.
+ * Migrada a Hilt para usar ApiService con AuthInterceptor y timeouts.
  */
+@AndroidEntryPoint
 public class PerfilActivity extends AppCompatActivity {
 
     // Componentes de la interfaz
     private TextInputEditText etNombre, etEmail, etTelefono;
     private Button btnActualizar;
     private ProgressBar progressBar;
-    
+
     // Herramientas de datos
-    private ApiService apiService;
+    @Inject ApiService apiService;
     private int idUsuario;
 
     @Override
@@ -42,7 +46,7 @@ public class PerfilActivity extends AppCompatActivity {
         // 1. Vincular los elementos del diseño XML con el código Java
         vincularComponentes();
 
-        apiService = RetrofitClient.getApiService();
+        // apiService inyectado por Hilt (con AuthInterceptor + timeouts)
 
         // 2. Carga inicial: Recuperamos los datos que ya tenemos guardados en el móvil (SharedPreferences)
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
@@ -90,14 +94,20 @@ public class PerfilActivity extends AppCompatActivity {
                     Usuario user = response.body();
                     etNombre.setText(user.getNombre());
                     etEmail.setText(user.getEmail());
-                    etTelefono.setText(user.getTelefono());
+                    if (user.getTelefono() != null) {
+                        etTelefono.setText(user.getTelefono());
+                    }
+                } else {
+                    Toast.makeText(PerfilActivity.this,
+                            "No se pudieron cargar los datos actualizados", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<Usuario> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                // Si la conexión falla, no mostramos error porque el usuario ya tiene la info básica local cargada
+                Toast.makeText(PerfilActivity.this,
+                        "Error de red al cargar perfil. Revisa tu conexión.", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -31,6 +31,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/usuarios/login").permitAll()
                 .requestMatchers("/api/usuarios").permitAll()
                 .requestMatchers("/api/pistas").permitAll()
+                .requestMatchers("/api/reservas/disponibilidad").permitAll()
+                .requestMatchers("/api/reservas/pista/*/fecha/*").permitAll()
                 .requestMatchers("/images/**").permitAll()
                 // Rutas protegidas (requieren token válido)
                 .anyRequest().authenticated()

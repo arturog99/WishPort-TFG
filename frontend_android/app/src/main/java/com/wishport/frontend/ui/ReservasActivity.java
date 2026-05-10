@@ -18,7 +18,10 @@ import com.facebook.shimmer.ShimmerFrameLayout;
 import com.wishport.frontend.R;
 import com.wishport.frontend.adapters.ReservaAdapter;
 import com.wishport.frontend.api.ApiService;
-import com.wishport.frontend.api.RetrofitClient;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Reserva;
 
@@ -33,6 +36,7 @@ import retrofit2.Response;
  * PANTALLA MIS RESERVAS: Muestra el historial de reservas del usuario logueado.
  * Usa Shimmer para la carga y permite refrescar deslizando hacia abajo.
  */
+@AndroidEntryPoint
 public class ReservasActivity extends AppCompatActivity {
 
     private RecyclerView recyclerViewReservas;
@@ -42,6 +46,8 @@ public class ReservasActivity extends AppCompatActivity {
     private ShimmerFrameLayout shimmerFrameLayout;
     
     private List<Reserva> listaReservas = new ArrayList<>();
+
+    @Inject ApiService apiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,7 +103,7 @@ public class ReservasActivity extends AppCompatActivity {
             emptyStateLayout.setVisibility(View.GONE);
         }
 
-        ApiService apiService = RetrofitClient.getApiService();
+        // apiService inyectado por Hilt (con AuthInterceptor + timeouts)
         apiService.obtenerReservasPorUsuario(idUsuario).enqueue(new Callback<List<Reserva>>() {
             @Override
             public void onResponse(Call<List<Reserva>> call, Response<List<Reserva>> response) {
