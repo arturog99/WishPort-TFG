@@ -12,17 +12,31 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Configuración de seguridad de Spring Security.
- * Define qué rutas son públicas, cuáles privadas y añade el filtro JWT.
+ * Configuración central de Spring Security para la API WishPort.
+ *
+ * Define:
+ *   1. El encriptador de contraseñas (BCrypt).
+ *   2. Las reglas de acceso a las rutas (públicas vs privadas).
+ *   3. La integración del filtro JWT en la cadena de seguridad.
+ *
+ * Principios de seguridad aplicados:
+ *   - Sin estado (STATELESS): no se usan sesiones HTTP, cada petición
+ *     debe autenticarse por sí sola con el token JWT.
+ *   - CSRF desactivado: no necesario en APIs REST sin estado con JWT.
  */
 @Configuration
 public class SecurityConfig {
 
+    /** Filtro JWT inyectado para añadirlo a la cadena de seguridad */
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
-     * Encriptador para hashear las contraseñas antes de guardarlas en base de datos.
+     * Define el encriptador de contraseñas como Bean de Spring.
+     * BCrypt es un algoritmo de hashing adaptativo: es lento a propósito
+     * para dificultar ataques de fuerza bruta.
+     * Se inyecta en UsuarioController para hashear al registrar
+     * y para comparar al hacer login.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -30,23 +44,32 @@ public class SecurityConfig {
     }
 
     /**
-     * Cadena de filtros de seguridad.
-     * Desactiva sesiones (usa tokens) y define permisos por ruta.
+     * Configura la cadena de filtros de seguridad HTTP.
+     *
+     * Rutas PÚBLICAS (sin token):
+     *   - POST /api/usuarios          -> Registro
+     *   - POST /api/usuarios/login    -> Login
+     *   - GET  /api/pistas            -> Lista de pistas
+     *   - GET  /api/reservas/disponibilidad -> Verificar disponibilidad
+     *   - GET  /api/reservas/pista/*/fecha/* -> Reservas de una pista por fecha
+     *   - GET  /images/**             -> Imágenes estáticas
+     *
+     * Rutas PRIVADAS (requieren JWT válido): cualquier otra ruta.
+     *
+     * @param http Objeto de configuración de Spring Security.
+     * @return La cadena de filtros construida.
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http.csrf(csrf -> csrf.disable()) // Sin CSRF en API REST sin estado
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Rutas públicas (no requieren token)
-                .requestMatchers("/api/usuarios/login", "/api/usuarios", "/api/pistas", 
+                .requestMatchers("/api/usuarios/login", "/api/usuarios", "/api/pistas",
                                  "/api/reservas/disponibilidad", "/api/reservas/pista/*/fecha/*", "/images/**")
                 .permitAll()
-                
-                // Rutas privadas (cualquier otra ruta requiere token válido)
                 .anyRequest().authenticated()
             )
-            // Añadir filtro que intercepta cada petición y valida el token JWT
+            // El filtro JWT se ejecuta antes del filtro de autenticación por formulario
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

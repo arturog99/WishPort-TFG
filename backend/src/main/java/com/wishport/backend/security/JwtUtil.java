@@ -12,16 +12,39 @@ import java.util.Map;
 
 /**
  * Utilidad para generar, validar y extraer información de tokens JWT.
+ *
+ * Un JWT (JSON Web Token) tiene 3 partes separadas por puntos:
+ *   HEADER.PAYLOAD.SIGNATURE
+ *
+ * En esta app el PAYLOAD (claims) contiene:
+ *   - subject: email del usuario
+ *   - idUsuario: ID numérico del usuario
+ *   - rol: "USER" o "ADMIN"
+ *   - iat: fecha de creación (issued at)
+ *   - exp: fecha de expiración (24h después de iat)
+ *
+ * La SIGNATURE garantiza que nadie puede modificar el token sin invalidarlo.
+ * Se firma con HMAC-SHA256 usando la clave secreta KEY.
+ *
+ * Flujo típico:
+ *   1. login() llama a generarToken() -> devuelve el token al cliente.
+ *   2. El cliente lo guarda y lo envía en cada petición en el header "Authorization: Bearer {token}".
+ *   3. JwtAuthenticationFilter llama a esTokenValido() y estaExpirado() para validarlo.
+ *   4. Si es válido, extrae idUsuario y rol con extraerIdUsuario() y extraerRol().
  */
 @Component
 public class JwtUtil {
 
-    // Clave secreta para firmar y verificar los tokens.
-    // En un entorno real, debería estar en una variable de entorno.
+    /**
+     * Clave secreta para firmar y verificar los tokens con HMAC-SHA256.
+     * IMPORTANTE: En producción debe estar en una variable de entorno,
+     * nunca hardcodeada en el código fuente.
+     */
     private static final String SECRET = "wishport-tfg-super-secreto-2026-no-compartir-jamas";
     private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes());
 
-    private static final long EXPIRATION_MS = 86400000; // 24 horas
+    /** Tiempo de vida del token: 24 horas en milisegundos (86400 segundos * 1000) */
+    private static final long EXPIRATION_MS = 86400000;
 
     /**
      * Genera un nuevo token JWT para un usuario.
@@ -56,14 +79,29 @@ public class JwtUtil {
                 .getPayload();
     }
 
+    /**
+     * Extrae el email del usuario (guardado como "subject" del token).
+     * @param token Token JWT válido.
+     * @return Email del usuario.
+     */
     public String extraerEmail(String token) {
         return extraerClaims(token).getSubject();
     }
 
+    /**
+     * Extrae el ID numérico del usuario del payload del token.
+     * @param token Token JWT válido.
+     * @return ID del usuario.
+     */
     public Integer extraerIdUsuario(String token) {
         return (Integer) extraerClaims(token).get("idUsuario");
     }
 
+    /**
+     * Extrae el rol del usuario del payload del token ("USER" o "ADMIN").
+     * @param token Token JWT válido.
+     * @return Rol del usuario.
+     */
     public String extraerRol(String token) {
         return (String) extraerClaims(token).get("rol");
     }

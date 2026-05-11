@@ -25,35 +25,59 @@ import com.wishport.frontend.ui.viewmodels.PistasViewModel;
 import dagger.hilt.android.AndroidEntryPoint;
 
 /**
- * PANTALLA PRINCIPAL (Migrada a MVVM): Muestra el listado de pistas.
- * Ahora la lógica de datos reside en PistasViewModel.
+ * PANTALLA PRINCIPAL: Muestra el catálogo de pistas disponibles.
+ *
+ * Es la pantalla que ven los usuarios con rol USER tras hacer login.
+ * Implementa el patrón MVVM: la Activity solo gestiona la UI,
+ * toda la lógica de datos vive en PistasViewModel.
+ *
+ * Funcionalidades:
+ * - Lista de pistas con foto, deporte y estado.
+ * - Pull-to-refresh (deslizar hacia abajo para recargar).
+ * - Efecto Shimmer (animación de carga mientras llegan los datos).
+ * - Navegación a Mis Reservas, Perfil y DetallePista.
+ * - Menú superior con opción de Logout.
  */
-@AndroidEntryPoint // Indica a Hilt que debe inyectar dependencias en esta Activity
+@AndroidEntryPoint
 public class PistasActivity extends AppCompatActivity {
 
+    /** Lista visual de pistas que ocupa el cuerpo de la pantalla */
     private RecyclerView recyclerViewPistas;
+    /** Adaptador que convierte la lista de Pista en filas visuales */
     private PistaAdapter pistaAdapter;
+    /** Contenedor que habilita el gesto de "deslizar para recargar" */
     private SwipeRefreshLayout swipeRefreshLayout;
+    /** Contenedor que muestra la animación de esqueleto mientras cargan los datos */
     private ShimmerFrameLayout shimmerFrameLayout;
-    
+    /** ViewModel que gestiona la obtención y el estado de la lista de pistas */
     private PistasViewModel viewModel;
 
+    /**
+     * Punto de entrada de la Activity.
+     * 1. Obtiene el ViewModel (Hilt lo crea e inyecta sus dependencias).
+     * 2. Vincula las vistas con sus IDs del XML.
+     * 3. Configura los listeners de botones y gestos.
+     * 4. Se suscribe a los LiveData del ViewModel.
+     * 5. Lanza la primera carga de pistas.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pantalla_deportes);
 
-        // 1. Inicializar el ViewModel a través de Hilt
         viewModel = new ViewModelProvider(this).get(PistasViewModel.class);
 
         vincularVistas();
         configurarEventos();
-        observarDatos(); // Escuchamos los cambios que vengan del ViewModel
+        observarDatos();
 
-        // Carga inicial
-        viewModel.cargarPistas();
+        viewModel.cargarPistas(); // Dispara GET /api/pistas al arrancar
     }
 
+    /**
+     * Vincula las variables Java con los elementos visuales del XML.
+     * También configura el RecyclerView para que muestre una lista vertical.
+     */
     private void vincularVistas() {
         recyclerViewPistas = findViewById(R.id.recyclerViewPistas);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshPistas);
@@ -61,33 +85,47 @@ public class PistasActivity extends AppCompatActivity {
         recyclerViewPistas.setLayoutManager(new LinearLayoutManager(this));
     }
 
+    /**
+     * Configura los listeners de los botones de navegación y gestos:
+     * - btnMisReservas: navega a ReservasActivity.
+     * - btnPerfil: navega a PerfilActivity.
+     * - swipeRefresh: vuelve a llamar a cargarPistas() para refrescar la lista.
+     */
     private void configurarEventos() {
-        findViewById(R.id.btnMisReservas).setOnClickListener(v -> 
+        findViewById(R.id.btnMisReservas).setOnClickListener(v ->
             startActivity(new Intent(this, ReservasActivity.class)));
 
-        findViewById(R.id.btnPerfil).setOnClickListener(v -> 
+        findViewById(R.id.btnPerfil).setOnClickListener(v ->
             startActivity(new Intent(this, PerfilActivity.class)));
 
         swipeRefreshLayout.setOnRefreshListener(() -> viewModel.cargarPistas());
     }
 
     /**
-     * OBSERVAR DATOS (LiveData): La Activity se suscribe a los cambios del ViewModel.
-     * Cuando el ViewModel recibe datos de la API, esta función se activa sola.
+     * Se suscribe a los LiveData del ViewModel para actualizar la UI automáticamente:
+     *
+     * pistas: cuando llega la lista, crea el adaptador y lo asigna al RecyclerView.
+     *   También registra el listener para que al pulsar una pista, se abra
+     *   DetallePistaActivity pasándole el objeto Pista como Serializable.
+     *
+     * isLoading: gestiona la animación Shimmer y el indicador de swipe-refresh.
+     *   - true  -> muestra shimmer, oculta la lista.
+     *   - false -> oculta shimmer, muestra la lista, para el indicador de refresh.
+     *
+     * error: si algo falla, muestra el mensaje en un Toast.
      */
     private void observarDatos() {
-        // Observar la lista de pistas
         viewModel.pistas.observe(this, listaPistas -> {
             pistaAdapter = new PistaAdapter(listaPistas);
             recyclerViewPistas.setAdapter(pistaAdapter);
             pistaAdapter.setOnItemClickListener(pista -> {
                 Intent intent = new Intent(this, DetallePistaActivity.class);
+                // EXTRA_PISTA = clave de contrato para pasar la Pista entre Activities
                 intent.putExtra(DetallePistaActivity.EXTRA_PISTA, pista);
                 startActivity(intent);
             });
         });
 
-        // Observar estado de carga (Shimmer)
         viewModel.isLoading.observe(this, isLoading -> {
             if (isLoading) {
                 if (!swipeRefreshLayout.isRefreshing()) {
@@ -103,7 +141,6 @@ public class PistasActivity extends AppCompatActivity {
             }
         });
 
-        // Observar errores
         viewModel.error.observe(this, mensaje -> {
             if (mensaje != null) {
                 Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show();
@@ -111,12 +148,20 @@ public class PistasActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Infla el menú de la barra superior (action bar) con las opciones definidas
+     * en res/menu/menu_main.xml. En este caso, solo tiene el botón de "Cerrar sesión".
+     */
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
+    /**
+     * Maneja los clics en los items del menú superior.
+     * Si el usuario pulsa "Cerrar sesión", llama a hacerLogout().
+     */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_logout) {
@@ -126,6 +171,13 @@ public class PistasActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Cierra la sesión del usuario:
+     * 1. Borra todos los datos de SharedPreferences (id, nombre, email, rol).
+     * 2. Borra el token JWT de EncryptedSharedPreferences via TokenManager.
+     * 3. Navega a LoginActivity limpiando toda la pila de Activities
+     *    (FLAG_ACTIVITY_CLEAR_TASK) para que el usuario no pueda volver atrás.
+     */
     private void hacerLogout() {
         getSharedPreferences("WishPortPrefs", MODE_PRIVATE).edit().clear().apply();
         TokenManager.clear(this);

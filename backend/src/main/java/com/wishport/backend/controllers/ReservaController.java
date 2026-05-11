@@ -1,7 +1,10 @@
 package com.wishport.backend.controllers;
 
+import com.wishport.backend.dto.ReservaDTO;
+import com.wishport.backend.entities.Pista;
 import com.wishport.backend.entities.Reserva;
 import com.wishport.backend.entities.Usuario;
+import com.wishport.backend.repositories.PistaRepository;
 import com.wishport.backend.repositories.ReservaRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,21 +19,46 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Controlador para gestionar las operaciones de reservas de pistas.
+ * Controlador REST que gestiona el ciclo completo de las reservas.
+ *
+ * Rutas base: /api/reservas
+ *
+ * Endpoints:
+ *   GET  /api/reservas                          -> obtenerTodasLasReservas()     [ADMIN]
+ *   GET  /api/reservas/hoy                      -> obtenerReservasDeHoy()        [ADMIN]
+ *   GET  /api/reservas/usuario/{idUsuario}       -> obtenerReservasPorUsuario()   [privado]
+ *   GET  /api/reservas/pista/{id}/fecha/{fecha}  -> obtenerReservasPorPistaYFecha() [público]
+ *   GET  /api/reservas/disponibilidad            -> verificarDisponibilidad()     [público]
+ *   POST /api/reservas                           -> crearReserva()               [privado]
+ *   DELETE /api/reservas/{id}                    -> eliminarReserva()            [privado]
+ *
+ * La autorización se gestiona con los atributos "idUsuario" y "rol"
+ * inyectados por JwtAuthenticationFilter en cada request.
  */
 @RestController
 @RequestMapping("/api/reservas")
 public class ReservaController {
 
+    /** Repositorio para operaciones CRUD sobre la tabla reservas */
     @Autowired
     private ReservaRepository reservaRepository;
 
+    /** Repositorio para consultar el estado de las pistas */
+    @Autowired
+    private PistaRepository pistaRepository;
+
     /**
-     * Obtiene todas las reservas (solo accesible para administradores).
+     * Devuelve TODAS las reservas del sistema.
+     * Ruta: GET /api/reservas  [privada - solo ADMIN]
+     *
+     * Comprueba manualmente que el atributo "rol" del request sea "ADMIN".
+     * Si no lo es, lanza AccessDeniedException (Spring Security devuelve 403).
+     * Usado en AdminActivity para descargar y filtrar las reservas del día.
      */
     @GetMapping
     public List<Reserva> obtenerTodasLasReservas(HttpServletRequest request) {
@@ -88,12 +116,21 @@ public class ReservaController {
 
     /**
      * Obtiene reservas para una pista y fecha específicas. Útil para el calendario público.
+     * Ruta: GET /api/reservas/pista/{idPista}/fecha/{fecha}  [pública - NO requiere JWT]
+     *
+     * Devuelve ReservaDTO en lugar de la entidad Reserva para no exponer
+     * datos privados del usuario (email, teléfono) en un endpoint público.
      */
     @GetMapping("/pista/{idPista}/fecha/{fecha}")
-    public List<Reserva> obtenerReservasPorPistaYFecha(
+    public List<ReservaDTO> obtenerReservasPorPistaYFecha(
             @PathVariable Integer idPista,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        return reservaRepository.findByPistaAndFecha(idPista, fecha);
+        List<Reserva> reservas = reservaRepository.findByPistaAndFecha(idPista, fecha);
+        List<ReservaDTO> dtos = new ArrayList<>();
+        for (Reserva r : reservas) {
+            dtos.add(new ReservaDTO(r));
+        }
+        return dtos;
     }
 
     /**
@@ -115,6 +152,20 @@ public class ReservaController {
 
     /**
      * Crea una nueva reserva para el usuario autenticado.
+     * Ruta: POST /api/reservas  [privada - requiere JWT]
+     *
+     * Flujo:
+     * 1. Extrae el idUsuario del JWT (no se confia en el id que manda el cliente).
+     * 2. Verifica que el usuario no tenga ya 2 reservas activas -> 403 LIMITE_ALCANZADO.
+     * 3. Verifica que no haya solapamiento de horario -> 409 HORARIO_OCUPADO.
+     * 4. Genera el código QR con formato: RSV-{idPista}-{idUsuario}-{timestamp}.
+     * 5. Guarda la reserva con estado "activa" -> 201 CREATED.
+     *
+     * @Transactional asegura que si algo falla, no se guarda nada a medias.
+     *
+     * @param reserva Objeto JSON con fecha, horaInicio, horaFin e idPista.
+     * @param request Request HTTP con el idUsuario inyectado por el filtro JWT.
+     * @return 201 CREATED con la reserva creada, o 401/403/409 según el error.
      */
     @PostMapping
     @Transactional
@@ -124,32 +175,45 @@ public class ReservaController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token no válido");
         }
 
-        // Forzamos que la reserva se asigne al usuario que hace la petición
+        // Sobrescribimos el idUsuario con el del token (seguridad: evita asignar reservas a otro usuario)
         reserva.setIdUsuario(new Usuario(idUsuarioToken));
 
-        // Validar límite de reservas activas
+        // Verificar que la pista no esté en mantenimiento
+        Pista pista = pistaRepository.findById(reserva.getIdPista().getIdPista()).orElse(null);
+        if (pista != null && "mantenimiento".equalsIgnoreCase(pista.getEstado())) {
+            return error(HttpStatus.FORBIDDEN, "PISTA_EN_MANTENIMIENTO", "Esta pista está en mantenimiento y no se puede reservar.");
+        }
+
         if (reservaRepository.countByIdUsuario_IdUsuarioAndEstadoReserva(idUsuarioToken, "activa") >= 2) {
             return error(HttpStatus.FORBIDDEN, "LIMITE_ALCANZADO", "Ya tienes 2 reservas activas.");
         }
 
-        // Validar que el horario no esté ocupado
         List<Reserva> solapadas = reservaRepository.findReservasSolapadas(
                 reserva.getIdPista().getIdPista(), reserva.getFecha(), reserva.getHoraInicio(), reserva.getHoraFin()
         );
-
         if (!solapadas.isEmpty()) {
             return error(HttpStatus.CONFLICT, "HORARIO_OCUPADO", "Este horario ya está reservado");
         }
 
-        // Generar QR y guardar
+        // Formato: RSV-{idPista}-{idUsuario}-{milisegundos} -> garantiza unicidad
         reserva.setCodigoQr("RSV-" + reserva.getIdPista().getIdPista() + "-" + idUsuarioToken + "-" + System.currentTimeMillis());
         reserva.setEstadoReserva("activa");
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(reservaRepository.save(reserva));
     }
 
     /**
-     * Elimina una reserva (solo el propietario o un admin pueden hacerlo).
+     * Cancela (elimina) una reserva existente.
+     * Ruta: DELETE /api/reservas/{id}  [privada - requiere JWT]
+     *
+     * Solo puede cancelarla el dueño de la reserva o un ADMIN.
+     * Si otro usuario intenta cancelar una reserva ajena -> 403 FORBIDDEN.
+     * Devuelve 204 NO CONTENT al cancelar correctamente (sin cuerpo en la respuesta).
+     * Retrofit en Android interpreta el 204 con Callback<Void> como éxito.
+     *
+     * @param id      ID de la reserva a cancelar.
+     * @param request Request HTTP con idUsuario y rol inyectados por el filtro JWT.
+     * @return 204 NO CONTENT, 403 FORBIDDEN, o 404 NOT FOUND.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminarReserva(@PathVariable Integer id, HttpServletRequest request) {
@@ -158,16 +222,26 @@ public class ReservaController {
             return error(HttpStatus.NOT_FOUND, "RESERVA_NO_ENCONTRADA", "La reserva no existe");
         }
 
-        // Validar permisos
         if (!reserva.getIdUsuario().getIdUsuario().equals(request.getAttribute("idUsuario")) && !"ADMIN".equals(request.getAttribute("rol"))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No puedes cancelar una reserva ajena");
         }
 
-        reservaRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        // Soft-delete: cambiamos el estado en vez de borrar para mantener historial
+        reserva.setEstadoReserva("cancelada");
+        reservaRepository.save(reserva);
+        return ResponseEntity.noContent().build(); // 204 NO CONTENT
     }
 
-    // Método de ayuda para devolver JSON de errores fácilmente
+    /**
+     * Método auxiliar para construir respuestas de error estructuradas en JSON.
+     * Devuelve siempre un objeto con dos campos: "error" (código) y "mensaje" (descripción).
+     * Esto permite al frontend identificar el tipo de error (ej: LIMITE_ALCANZADO)
+     * y mostrar un mensaje adecuado al usuario.
+     *
+     * @param status  Código HTTP de la respuesta.
+     * @param code    Código interno del error (ej: "HORARIO_OCUPADO").
+     * @param message Descripción legible del error.
+     */
     private ResponseEntity<?> error(HttpStatus status, String code, String message) {
         Map<String, String> error = new HashMap<>();
         error.put("error", code);

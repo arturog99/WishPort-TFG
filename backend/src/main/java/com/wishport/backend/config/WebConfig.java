@@ -5,14 +5,31 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Configuración general web.
- * Permite servir archivos estáticos (imágenes) al cliente.
+ * Configuración MVC general del backend.
+ *
+ * Permite que el servidor sirva archivos estáticos (imágenes de pistas)
+ * directamente desde la carpeta src/main/resources/static/images/.
+ *
+ * Sin esta configuración, las peticiones GET /images/padel.jpg
+ * devolverían 404 aunque el archivo existiera en el classpath.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
     /**
-     * Mapea la ruta "/images/**" a la carpeta de recursos estáticos "/static/images/".
+     * Registra un manejador de recursos estáticos.
+     *
+     * Mapeo:
+     *   URL: /images/**
+     *   Ruta física: classpath:/static/images/
+     *   (es decir, src/main/resources/static/images/)
+     *
+     * Ejemplo:
+     *   GET https://api.wishport.com/images/padel.jpg
+     *   -> Sirve el archivo src/main/resources/static/images/padel.jpg
+     *
+     * En SecurityConfig esta ruta está marcada como pública (.permitAll())
+     * para que las imágenes sean accesibles sin token JWT.
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

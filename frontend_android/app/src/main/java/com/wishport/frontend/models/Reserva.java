@@ -7,17 +7,30 @@ import java.time.LocalTime;
 /**
  * MODELO RESERVA: Representa el alquiler de una pista por un usuario.
  * Contiene la fecha, las horas de inicio/fin y el código QR generado.
+ *
+ * Es la entidad central de la aplicación: une a un Usuario con una Pista
+ * en una franja horaria concreta. Implementa Serializable para poder
+ * pasarse entre Activities con Intent.putExtra().
  */
 public class Reserva implements Serializable {
+    /** Identificador único de la reserva generado por la base de datos */
     private Integer idReserva;
+    /** Fecha del día de la reserva (solo año/mes/día, sin hora) */
     private LocalDate fecha;
+    /** Hora a la que comienza la franja reservada, ej: 18:00 */
     private LocalTime horaInicio;
+    /** Hora a la que termina la franja reservada, ej: 19:00 */
     private LocalTime horaFin;
-    private String codigoQr;      // El texto que se convierte en imagen QR
-    private String estadoReserva; // "activa", "cancelada", "finalizada"
-    private Pista idPista;        // Objeto Pista completo
-    private Usuario idUsuario;    // Objeto Usuario completo
+    /** Código único en texto que el frontend convierte en imagen QR */
+    private String codigoQr;
+    /** Estado actual: "activa", "cancelada" o "completada" */
+    private String estadoReserva;
+    /** Objeto Pista completo con todos sus datos (nombre, deporte, etc.) */
+    private Pista idPista;
+    /** Objeto Usuario completo con todos sus datos (nombre, email, etc.) */
+    private Usuario idUsuario;
 
+    /** Constructor vacío requerido por Gson para crear instancias al parsear JSON */
     public Reserva() {}
 
     // --- GETTERS Y SETTERS ---

@@ -14,44 +14,65 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Controlador para gestionar las operaciones relacionadas con los usuarios.
+ * Controlador REST que gestiona todo lo relacionado con los usuarios.
+ *
+ * Rutas base: /api/usuarios
+ *
+ * Endpoints:
+ *   POST   /api/usuarios         -> registrarUsuario() [público]
+ *   POST   /api/usuarios/login   -> login()            [público]
+ *   GET    /api/usuarios/me      -> obtenerUsuarioActual() [privado - requiere JWT]
+ *   GET    /api/usuarios/{id}    -> obtenerUsuarioPorId()  [privado - requiere JWT]
+ *   PUT    /api/usuarios/{id}    -> actualizarUsuario()    [privado - requiere JWT]
+ *
+ * Las rutas públicas están declaradas en SecurityConfig.filterChain().
  */
 @RestController
 @RequestMapping("/api/usuarios")
 public class UsuarioController {
 
+    /** Repositorio para operaciones CRUD sobre la tabla usuarios */
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    /** Encriptador BCrypt inyectado desde SecurityConfig para comparar/hashear contraseñas */
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    /** Utilidad para generar y validar tokens JWT */
     @Autowired
     private JwtUtil jwtUtil;
 
     /**
      * Registra un nuevo usuario en el sistema.
-     * @param nuevoUsuario Datos del usuario a registrar.
-     * @return El usuario guardado o un mensaje de error si faltan datos o el email ya existe.
+     * Ruta: POST /api/usuarios  [pública, no requiere JWT]
+     *
+     * Flujo:
+     * 1. Valida que el teléfono no esté vacío -> 400 BAD REQUEST si falta.
+     * 2. Verifica que el email no esté ya registrado -> 409 CONFLICT si duplicado.
+     * 3. Hashea la contraseña con BCrypt antes de guardar.
+     * 4. Asigna el rol "USER" por defecto (no se puede registrar como ADMIN desde la app).
+     * 5. Guarda el usuario y devuelve 200 OK con el objeto guardado.
+     *
+     * @param nuevoUsuario Objeto JSON con nombre, email, password y teléfono.
+     * @return 200 OK con el usuario, 400/409 con mensaje de error, o 500 si falla la BD.
      */
     @PostMapping
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario nuevoUsuario) {
         try {
-            // Validar que el teléfono esté presente
             if (nuevoUsuario.getTelefono() == null || nuevoUsuario.getTelefono().trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("El número de teléfono es obligatorio para registrarse");
             }
 
-            // Verificar si el email ya está en uso
             if (usuarioRepository.findByEmail(nuevoUsuario.getEmail()) != null) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("Este email ya está registrado");
             }
 
-            // Encriptar la contraseña y asignar rol por defecto
+            // Nunca guardamos la contraseña en texto plano
             nuevoUsuario.setPassword(passwordEncoder.encode(nuevoUsuario.getPassword()));
-            nuevoUsuario.setRol("USER");
-            
+            nuevoUsuario.setRol("USER"); // Rol por defecto
+
             return ResponseEntity.ok(usuarioRepository.save(nuevoUsuario));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -60,15 +81,26 @@ public class UsuarioController {
     }
 
     /**
-     * Inicia sesión verificando las credenciales.
-     * @param credenciales Objeto con email y password.
-     * @return Un token JWT y los datos del usuario, o estado 401 si falla.
+     * Autentica al usuario con email y contraseña.
+     * Ruta: POST /api/usuarios/login  [pública, no requiere JWT]
+     *
+     * Flujo:
+     * 1. Busca el usuario por email en la BD.
+     * 2. Compara la contraseña recibida con el hash BCrypt guardado.
+     * 3. Si coincide: genera un token JWT con id, email y rol.
+     * 4. Devuelve 200 OK con el token y los datos del usuario.
+     * 5. Si no coincide: devuelve 401 UNAUTHORIZED.
+     *
+     * La app móvil guarda el token en EncryptedSharedPreferences (TokenManager)
+     * y los datos del usuario en SharedPreferences para uso local.
+     *
+     * @param credenciales JSON con email y password.
+     * @return 200 con {token, idUsuario, nombre, email, telefono, rol} o 401.
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Usuario credenciales) {
         Usuario usuario = usuarioRepository.findByEmail(credenciales.getEmail());
 
-        // Comprobar que el usuario existe y la contraseña coincide
         if (usuario != null && passwordEncoder.matches(credenciales.getPassword(), usuario.getPassword())) {
             String token = jwtUtil.generarToken(usuario.getIdUsuario(), usuario.getEmail(), usuario.getRol());
 
@@ -87,9 +119,15 @@ public class UsuarioController {
     }
 
     /**
-     * Devuelve los datos del usuario autenticado actualmente según su token.
-     * @param request Petición HTTP con el token interceptado.
-     * @return Datos del usuario.
+     * Devuelve los datos del usuario autenticado según el token JWT.
+     * Ruta: GET /api/usuarios/me  [privada - requiere JWT]
+     *
+     * El idUsuario no se pasa por URL sino que se extrae del atributo
+     * inyectado en la request por JwtAuthenticationFilter.
+     * Esto evita que un usuario pueda consultar datos de otro usuario.
+     *
+     * @param request Petición HTTP con atributo "idUsuario" inyectado por el filtro JWT.
+     * @return 200 con datos del usuario (sin contraseña), 401 si el token es inválido.
      */
     @GetMapping("/me")
     public ResponseEntity<?> obtenerUsuarioActual(HttpServletRequest request) {
@@ -103,14 +141,19 @@ public class UsuarioController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuario no encontrado");
         }
 
-        usuario.setPassword(null); // Ocultar contraseña por seguridad
+        usuario.setPassword(null); // Nunca devolvemos la contraseña (aunque sea hash)
         return ResponseEntity.ok(usuario);
     }
 
     /**
-     * Obtiene un usuario por su ID.
-     * @param id Identificador del usuario.
-     * @return Datos del usuario.
+     * Obtiene los datos de un usuario por su ID.
+     * Ruta: GET /api/usuarios/{id}  [privada - requiere JWT]
+     *
+     * Usado desde PerfilActivity para obtener datos actualizados del servidor,
+     * incluyendo el teléfono que no se guarda en SharedPreferences.
+     *
+     * @param id ID del usuario a consultar.
+     * @return 200 con datos del usuario (sin contraseña), 404 si no existe.
      */
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerUsuarioPorId(@PathVariable Integer id) {
@@ -119,7 +162,41 @@ public class UsuarioController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuario no encontrado");
         }
 
-        usuario.setPassword(null); // Ocultar contraseña por seguridad
+        usuario.setPassword(null); // Nunca devolvemos la contraseña
         return ResponseEntity.ok(usuario);
+    }
+
+    /**
+     * Actualiza los datos editables del perfil de un usuario.
+     * Ruta: PUT /api/usuarios/{id}  [privada - requiere JWT]
+     *
+     * Solo permite modificar nombre y teléfono. El email, la contraseña
+     * y el rol NO se tocan para evitar escaladas de privilegios o
+     * cambios accidentales desde el cliente.
+     *
+     * Flujo:
+     * 1. Busca al usuario por ID -> 404 si no existe.
+     * 2. Actualiza nombre y teléfono con los valores recibidos.
+     * 3. Guarda en BD y devuelve el usuario actualizado (sin contraseña).
+     *
+     * @param id              ID del usuario a actualizar.
+     * @param datosActualizados Objeto con los nuevos valores de nombre y teléfono.
+     * @return 200 OK con el usuario actualizado, o 404 si no existe.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarUsuario(@PathVariable Integer id,
+                                               @RequestBody Usuario datosActualizados) {
+        Usuario usuario = usuarioRepository.findById(id).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuario no encontrado");
+        }
+
+        // Solo actualizamos campos editables desde el perfil
+        usuario.setNombre(datosActualizados.getNombre());
+        usuario.setTelefono(datosActualizados.getTelefono());
+
+        Usuario guardado = usuarioRepository.save(usuario);
+        guardado.setPassword(null); // Nunca devolvemos la contraseña
+        return ResponseEntity.ok(guardado);
     }
 }

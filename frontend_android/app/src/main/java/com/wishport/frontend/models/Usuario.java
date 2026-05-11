@@ -5,17 +5,31 @@ import java.io.Serializable;
 /**
  * MODELO USUARIO: Representa a una persona en el sistema.
  * Se usa tanto para el Login como para mostrar datos en el Perfil.
+ *
+ * Implementa Serializable para poder pasarse entre Activities.
+ * Gson la usa para convertir el JSON del servidor en este objeto Java.
  */
 public class Usuario implements Serializable {
+    /** Identificador único del usuario en la base de datos */
     private Integer idUsuario;
+    /** Nombre completo o de perfil del usuario */
     private String nombre;
+    /** Correo electrónico, usado como nombre de usuario para el login */
     private String email;
-    private String password; // Solo se usa en el Login/Registro
-    private String rol;      // "USER" o "ADMIN"
+    /** Contraseña. Solo se envía en login/registro, el servidor NUNCA la devuelve */
+    private String password;
+    /** Rol del usuario: "USER" (usuario normal) o "ADMIN" (administrador) */
+    private String rol;
+    /** Teléfono de contacto del usuario */
     private String telefono;
 
+    /** Constructor vacío requerido por Gson */
     public Usuario() {}
 
+    /**
+     * Constructor completo para crear un usuario con todos sus datos.
+     * Usado cuando se necesita construir manualmente un objeto Usuario.
+     */
     public Usuario(Integer idUsuario, String nombre, String email, String password, String telefono) {
         this.idUsuario = idUsuario;
         this.nombre = nombre;
