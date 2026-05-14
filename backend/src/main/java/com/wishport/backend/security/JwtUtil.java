@@ -3,12 +3,17 @@ package com.wishport.backend.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+
+import static java.security.KeyRep.Type.SECRET;
 
 /**
  * Utilidad para generar, validar y extraer información de tokens JWT.
@@ -40,18 +45,25 @@ public class JwtUtil {
      * IMPORTANTE: En producción debe estar en una variable de entorno,
      * nunca hardcodeada en el código fuente.
      */
-    private static final String SECRET = "wishport-tfg-super-secreto-2026-no-compartir-jamas";
-    private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes());
+    @Value("${wishport.jwt.secret}")
+    private String secret;
 
+    private SecretKey key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    }
+    private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
     /** Tiempo de vida del token: 24 horas en milisegundos (86400 segundos * 1000) */
     private static final long EXPIRATION_MS = 86400000;
 
     /**
      * Genera un nuevo token JWT para un usuario.
-     * @param idUsuario ID del usuario.
-     * @param email Email del usuario (se usa como "subject" del token).
-     * @param rol Rol del usuario (para control de acceso).
-     * @return El token JWT como una cadena de texto.
+     * param idUsuario ID del usuario.
+     * param email Email del usuario (se usa como "subject" del token).
+     * param rol Rol del usuario (para control de acceso).
+     * return El token JWT como una cadena de texto.
      */
     public String generarToken(Integer idUsuario, String email, String rol) {
         Map<String, Object> claims = new HashMap<>();
