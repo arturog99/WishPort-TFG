@@ -5,6 +5,7 @@ import com.wishport.backend.repositories.UsuarioRepository;
 import com.wishport.backend.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,11 +20,12 @@ import java.util.Map;
  * Rutas base: /api/usuarios
  *
  * Endpoints:
- *   POST   /api/usuarios         -> registrarUsuario() [público]
- *   POST   /api/usuarios/login   -> login()            [público]
- *   GET    /api/usuarios/me      -> obtenerUsuarioActual() [privado - requiere JWT]
- *   GET    /api/usuarios/{id}    -> obtenerUsuarioPorId()  [privado - requiere JWT]
- *   PUT    /api/usuarios/{id}    -> actualizarUsuario()    [privado - requiere JWT]
+ *   POST   /api/usuarios              -> registrarUsuario()     [público]
+ *   POST   /api/usuarios/login        -> login()                [público]
+ *   POST   /api/usuarios/admin        -> registrarAdmin()       [público - requiere header X-Admin-Secret]
+ *   GET    /api/usuarios/me           -> obtenerUsuarioActual() [privado - requiere JWT]
+ *   GET    /api/usuarios/{id}         -> obtenerUsuarioPorId()  [privado - requiere JWT]
+ *   PUT    /api/usuarios/{id}         -> actualizarUsuario()    [privado - requiere JWT]
  *
  * Las rutas públicas están declaradas en SecurityConfig.filterChain().
  */
@@ -54,8 +56,8 @@ public class UsuarioController {
      * 4. Asigna el rol "USER" por defecto (no se puede registrar como ADMIN desde la app).
      * 5. Guarda el usuario y devuelve 200 OK con el objeto guardado.
      *
-     * @param nuevoUsuario Objeto JSON con nombre, email, password y teléfono.
-     * @return 200 OK con el usuario, 400/409 con mensaje de error, o 500 si falla la BD.
+     * param nuevoUsuario Objeto JSON con nombre, email, password y teléfono.
+     * return 200 OK con el usuario, 400/409 con mensaje de error, o 500 si falla la BD.
      */
     @PostMapping
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario nuevoUsuario) {
@@ -81,6 +83,57 @@ public class UsuarioController {
     }
 
     /**
+     * Clave secreta requerida en el header X-Admin-Secret para crear usuarios ADMIN.
+     * Variable de entorno.
+     */
+    @Value("${wishport.admin.secret}")
+    private String adminSecret;
+
+    /**
+     * Registra un nuevo usuario con rol ADMIN.
+     * Ruta: POST /api/usuarios/admin  [pública, pero protegida por header secreto]
+     *
+     * Flujo:
+     * 1. Comprueba que el header X-Admin-Secret coincida con ADMIN_SECRET -> 403 si no.
+     * 2. Valida que el teléfono no esté vacío -> 400 BAD REQUEST si falta.
+     * 3. Verifica que el email no esté ya registrado -> 409 CONFLICT si duplicado.
+     * 4. Hashea la contraseña con BCrypt antes de guardar.
+     * 5. Asigna el rol "ADMIN" y guarda el usuario.
+     *
+     * param nuevoUsuario Objeto JSON con nombre, email, password y teléfono.
+     * param adminSecret  Header X-Admin-Secret con la clave secreta.
+     * return 200 OK con el usuario creado, 403 si la clave es incorrecta, 400/409/500 para otros errores.
+     */
+    @PostMapping("/admin")
+    public ResponseEntity<?> registrarAdmin(@RequestBody Usuario nuevoUsuario,
+                                            @RequestHeader(value = "X-Admin-Secret", required = false) String adminSecret) {
+        if (!this.adminSecret.equals(adminSecret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Clave de administrador incorrecta");
+        }
+
+        try {
+            if (nuevoUsuario.getTelefono() == null || nuevoUsuario.getTelefono().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("El número de teléfono es obligatorio");
+            }
+
+            if (usuarioRepository.findByEmail(nuevoUsuario.getEmail()) != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Este email ya está registrado");
+            }
+
+            nuevoUsuario.setPassword(passwordEncoder.encode(nuevoUsuario.getPassword()));
+            nuevoUsuario.setRol("ADMIN");
+
+            Usuario guardado = usuarioRepository.save(nuevoUsuario);
+            guardado.setPassword(null);
+            return ResponseEntity.ok(guardado);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al registrar admin: " + e.getMessage());
+        }
+    }
+
+    /**
      * Autentica al usuario con email y contraseña.
      * Ruta: POST /api/usuarios/login  [pública, no requiere JWT]
      *
@@ -94,8 +147,8 @@ public class UsuarioController {
      * La app móvil guarda el token en EncryptedSharedPreferences (TokenManager)
      * y los datos del usuario en SharedPreferences para uso local.
      *
-     * @param credenciales JSON con email y password.
-     * @return 200 con {token, idUsuario, nombre, email, telefono, rol} o 401.
+     * param credenciales JSON con email y password.
+     * return 200 con {token, idUsuario, nombre, email, telefono, rol} o 401.
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Usuario credenciales) {
@@ -126,8 +179,8 @@ public class UsuarioController {
      * inyectado en la request por JwtAuthenticationFilter.
      * Esto evita que un usuario pueda consultar datos de otro usuario.
      *
-     * @param request Petición HTTP con atributo "idUsuario" inyectado por el filtro JWT.
-     * @return 200 con datos del usuario (sin contraseña), 401 si el token es inválido.
+     * param request Petición HTTP con atributo "idUsuario" inyectado por el filtro JWT.
+     * return 200 con datos del usuario (sin contraseña), 401 si el token es inválido.
      */
     @GetMapping("/me")
     public ResponseEntity<?> obtenerUsuarioActual(HttpServletRequest request) {
