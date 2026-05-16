@@ -6,8 +6,12 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,6 +31,7 @@ import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
 import com.wishport.frontend.api.TokenManager;
 import com.wishport.frontend.models.Reserva;
+import com.wishport.frontend.models.Usuario;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +97,7 @@ public class AdminActivity extends AppCompatActivity {
         recyclerViewReservas.setAdapter(reservaAdapter);
 
         findViewById(R.id.btnLogout).setOnClickListener(v -> hacerLogout());
+        findViewById(R.id.btnCrearAdmin).setOnClickListener(v -> mostrarDialogoCrearAdmin());
         findViewById(R.id.btnEscanearQr).setOnClickListener(v -> solicitarPermisoCamara());
 
         cargarReservasDelDia();
@@ -255,5 +261,119 @@ public class AdminActivity extends AppCompatActivity {
         TokenManager.clear(this);
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    // =========================================================================
+    // CREACIÓN DE ADMINISTRADORES
+    // =========================================================================
+
+    /**
+     * Muestra un diálogo con formulario para crear un nuevo administrador.
+     * Campos: Nombre, Email, Contraseña, Teléfono.
+     * Al confirmar, valida los campos y llama al endpoint crearAdmin.
+     */
+    private void mostrarDialogoCrearAdmin() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 20);
+
+        EditText etNombre = new EditText(this);
+        etNombre.setHint("Nombre completo");
+        etNombre.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        layout.addView(etNombre);
+
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("Email");
+        etEmail.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        layout.addView(etEmail);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint("Contraseña");
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        EditText etTelefono = new EditText(this);
+        etTelefono.setHint("Teléfono");
+        etTelefono.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        layout.addView(etTelefono);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Crear Nuevo Administrador");
+        builder.setView(layout);
+        builder.setPositiveButton("Crear", null);
+        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String nombre = etNombre.getText().toString().trim();
+            String email = etEmail.getText().toString().trim();
+            String password = etPassword.getText().toString();
+            String telefono = etTelefono.getText().toString().trim();
+
+            if (nombre.isEmpty()) {
+                etNombre.setError("El nombre es obligatorio");
+                return;
+            }
+            if (email.isEmpty()) {
+                etEmail.setError("El email es obligatorio");
+                return;
+            }
+            if (password.isEmpty()) {
+                etPassword.setError("La contraseña es obligatoria");
+                return;
+            }
+            if (telefono.isEmpty()) {
+                etTelefono.setError("El teléfono es obligatorio");
+                return;
+            }
+
+            Usuario nuevoAdmin = new Usuario();
+            nuevoAdmin.setNombre(nombre);
+            nuevoAdmin.setEmail(email);
+            nuevoAdmin.setPassword(password);
+            nuevoAdmin.setTelefono(telefono);
+            nuevoAdmin.setRol("ADMIN");
+
+            crearAdmin(nuevoAdmin, dialog);
+        });
+    }
+
+    /**
+     * Llama al endpoint POST /api/usuarios/crear-admin para crear un administrador.
+     * El backend verifica que el usuario autenticado tenga rol ADMIN.
+     */
+    private void crearAdmin(Usuario usuario, AlertDialog dialog) {
+        apiService.crearAdmin(usuario).enqueue(new Callback<Usuario>() {
+            @Override
+            public void onResponse(Call<Usuario> call, Response<Usuario> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Toast.makeText(AdminActivity.this,
+                            "Administrador creado: " + response.body().getNombre(),
+                            Toast.LENGTH_LONG).show();
+                    dialog.dismiss();
+                } else if (response.code() == 403) {
+                    Toast.makeText(AdminActivity.this,
+                            "No tienes permisos para crear administradores",
+                            Toast.LENGTH_LONG).show();
+                } else if (response.code() == 409) {
+                    Toast.makeText(AdminActivity.this,
+                            "Este email ya está registrado",
+                            Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(AdminActivity.this,
+                            "Error al crear administrador: " + response.code(),
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Usuario> call, Throwable t) {
+                Toast.makeText(AdminActivity.this,
+                        "Error de conexión: " + t.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 }

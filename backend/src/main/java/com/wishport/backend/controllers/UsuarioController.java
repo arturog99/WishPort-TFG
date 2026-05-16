@@ -22,7 +22,7 @@ import java.util.Map;
  * Endpoints:
  *   POST   /api/usuarios              -> registrarUsuario()     [público]
  *   POST   /api/usuarios/login        -> login()                [público]
- *   POST   /api/usuarios/admin        -> registrarAdmin()       [público - requiere header X-Admin-Secret]
+ *   POST   /api/usuarios/crear-admin  -> crearAdmin()           [privado - requiere JWT y rol ADMIN]
  *   GET    /api/usuarios/me           -> obtenerUsuarioActual() [privado - requiere JWT]
  *   GET    /api/usuarios/{id}         -> obtenerUsuarioPorId()  [privado - requiere JWT]
  *   PUT    /api/usuarios/{id}         -> actualizarUsuario()    [privado - requiere JWT]
@@ -83,32 +83,27 @@ public class UsuarioController {
     }
 
     /**
-     * Clave secreta requerida en el header X-Admin-Secret para crear usuarios ADMIN.
-     * Variable de entorno.
-     */
-    @Value("${wishport.admin.secret}")
-    private String adminSecret;
-
-    /**
      * Registra un nuevo usuario con rol ADMIN.
-     * Ruta: POST /api/usuarios/admin  [pública, pero protegida por header secreto]
+     * Ruta: POST /api/usuarios/crear-admin  [privada - requiere JWT y rol ADMIN]
      *
      * Flujo:
-     * 1. Comprueba que el header X-Admin-Secret coincida con ADMIN_SECRET -> 403 si no.
-     * 2. Valida que el teléfono no esté vacío -> 400 BAD REQUEST si falta.
-     * 3. Verifica que el email no esté ya registrado -> 409 CONFLICT si duplicado.
-     * 4. Hashea la contraseña con BCrypt antes de guardar.
-     * 5. Asigna el rol "ADMIN" y guarda el usuario.
+     * 1. Extrae el rol del usuario autenticado desde el token JWT.
+     * 2. Verifica que sea ADMIN -> 403 FORBIDDEN si no.
+     * 3. Valida que el teléfono no esté vacío -> 400 BAD REQUEST si falta.
+     * 4. Verifica que el email no esté ya registrado -> 409 CONFLICT si duplicado.
+     * 5. Hashea la contraseña con BCrypt antes de guardar.
+     * 6. Asigna el rol "ADMIN" y guarda el usuario.
      *
+     * param request      Petición HTTP con atributo "rol" inyectado por JwtAuthenticationFilter.
      * param nuevoUsuario Objeto JSON con nombre, email, password y teléfono.
-     * param adminSecret  Header X-Admin-Secret con la clave secreta.
-     * return 200 OK con el usuario creado, 403 si la clave es incorrecta, 400/409/500 para otros errores.
+     * return 200 OK con el usuario creado, 403 si no es admin, 400/409/500 para otros errores.
      */
-    @PostMapping("/admin")
-    public ResponseEntity<?> registrarAdmin(@RequestBody Usuario nuevoUsuario,
-                                            @RequestHeader(value = "X-Admin-Secret", required = false) String adminSecret) {
-        if (!this.adminSecret.equals(adminSecret)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Clave de administrador incorrecta");
+    @PostMapping("/crear-admin")
+    public ResponseEntity<?> crearAdmin(HttpServletRequest request,
+                                        @RequestBody Usuario nuevoUsuario) {
+        String rol = (String) request.getAttribute("rol");
+        if (!"ADMIN".equals(rol)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Solo los administradores pueden crear otros administradores");
         }
 
         try {

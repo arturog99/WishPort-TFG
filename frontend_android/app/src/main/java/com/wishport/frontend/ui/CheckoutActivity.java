@@ -3,6 +3,7 @@ package com.wishport.frontend.ui;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
@@ -16,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wishport.frontend.R;
 import com.wishport.frontend.api.ApiService;
+import com.wishport.frontend.api.TokenManager;
 import javax.inject.Inject;
 import com.wishport.frontend.models.Pista;
 import com.wishport.frontend.models.Reserva;
@@ -163,7 +165,15 @@ public class CheckoutActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences("WishPortPrefs", MODE_PRIVATE);
         int idUsuario = prefs.getInt("idUsuario", -1);
-        if (idUsuario == -1) return; // No hay sesión activa
+        if (idUsuario == -1) {
+            Log.e("CheckoutActivity", "ERROR: No hay sesión activa (idUsuario = -1)");
+            Toast.makeText(this, "Error: No hay sesión activa", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // DEBUG: Verificar token JWT
+        String token = TokenManager.getToken(this);
+        Log.d("CheckoutActivity", "Token JWT: " + (token != null ? "PRESENTE (" + token.substring(0, Math.min(20, token.length())) + "...)" : "AUSENTE"));
 
         btnPagar.setEnabled(false);
         progressBarPago.setVisibility(View.VISIBLE);
@@ -194,13 +204,20 @@ public class CheckoutActivity extends AppCompatActivity {
                     finish(); // No permitir volver a esta pantalla (ya reservado)
                 } else {
                     btnPagar.setEnabled(true);
-                    String msg = "Error en la reserva";
+                    String msg = "Error " + response.code() + " en la reserva";
                     try {
                         String errorBody = response.errorBody().string();
+                        Log.e("CheckoutActivity", "Error body: " + errorBody);
                         JSONObject json = new JSONObject(errorBody);
-                        if (json.has("mensaje")) msg = json.getString("mensaje");
-                    } catch (Exception ignored) {}
-                    Toast.makeText(CheckoutActivity.this, msg, Toast.LENGTH_SHORT).show();
+                        if (json.has("mensaje")) {
+                            msg = json.getString("mensaje");
+                        } else if (json.has("error")) {
+                            msg = json.getString("error") + ": " + msg;
+                        }
+                    } catch (Exception e) {
+                        Log.e("CheckoutActivity", "Error parseando respuesta: " + e.getMessage());
+                    }
+                    Toast.makeText(CheckoutActivity.this, msg, Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -208,6 +225,8 @@ public class CheckoutActivity extends AppCompatActivity {
             public void onFailure(Call<Reserva> call, Throwable t) {
                 progressBarPago.setVisibility(View.GONE);
                 btnPagar.setEnabled(true);
+                Log.e("CheckoutActivity", "Error de conexión: " + t.getMessage(), t);
+                Toast.makeText(CheckoutActivity.this, "Error de conexión: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }

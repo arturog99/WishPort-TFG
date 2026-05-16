@@ -167,4 +167,13 @@ public interface ApiService {
      */
     @POST("api/usuarios/login")
     Call<Map<String, Object>> login(@Body LoginRequest loginRequest);
+
+    /**
+     * Crea un nuevo usuario con rol ADMIN.
+     * Requiere token JWT y que el usuario autenticado tenga rol ADMIN.
+     * Usado en: AdminActivity desde el panel de gestión de usuarios.
+     * @param usuario Objeto con nombre, email, password, telefono y rol ADMIN.
+     */
+    @POST("api/usuarios/crear-admin")
+    Call<Usuario> crearAdmin(@Body Usuario usuario);
 }

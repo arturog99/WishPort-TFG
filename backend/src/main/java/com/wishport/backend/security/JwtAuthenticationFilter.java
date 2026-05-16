@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.logging.Logger;
 
 /**
  * Filtro de seguridad JWT que se ejecuta una vez por cada petición HTTP.
@@ -38,6 +39,8 @@ import java.util.Collections;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger logger = Logger.getLogger(JwtAuthenticationFilter.class.getName());
+
     /** JwtUtil inyectado para validar y extraer datos del token */
     @Autowired
     private JwtUtil jwtUtil;
@@ -59,24 +62,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Solo procesamos si existe el header y empieza con "Bearer "
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7); // Eliminamos el prefijo "Bearer "
+            String path = request.getRequestURI();
 
-            if (jwtUtil.esTokenValido(token) && !jwtUtil.estaExpirado(token)) {
-                String email = jwtUtil.extraerEmail(token);
-                Integer idUsuario = jwtUtil.extraerIdUsuario(token);
-                String rol = jwtUtil.extraerRol(token);
+            logger.info("JWT Filter: Token recibido para " + path + " - Validando...");
 
-                // Marcamos al usuario como autenticado en el contexto de Spring Security
-                // Collections.emptyList() = sin authorities específicas (los permisos los gestionamos con "rol")
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
+            if (jwtUtil.esTokenValido(token)) {
+                if (!jwtUtil.estaExpirado(token)) {
+                    String email = jwtUtil.extraerEmail(token);
+                    Integer idUsuario = jwtUtil.extraerIdUsuario(token);
+                    String rol = jwtUtil.extraerRol(token);
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.info("JWT Filter: Token VÁLIDO - Usuario: " + email + " (ID: " + idUsuario + ", Rol: " + rol + ")");
 
-                // Inyectamos idUsuario y rol como atributos accesibles desde los controladores:
-                // request.getAttribute("idUsuario") y request.getAttribute("rol")
-                request.setAttribute("idUsuario", idUsuario);
-                request.setAttribute("rol", rol);
+                    // Marcamos al usuario como autenticado en el contexto de Spring Security
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
+
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    // Inyectamos idUsuario y rol como atributos accesibles desde los controladores
+                    request.setAttribute("idUsuario", idUsuario);
+                    request.setAttribute("rol", rol);
+                } else {
+                    logger.warning("JWT Filter: Token EXPIRADO para " + path);
+                }
+            } else {
+                logger.warning("JWT Filter: Token INVÁLIDO (firma incorrecta) para " + path);
+            }
+        } else {
+            if (authHeader == null) {
+                logger.info("JWT Filter: No hay header Authorization para " + request.getRequestURI());
+            } else {
+                logger.warning("JWT Filter: Header Authorization no empieza con 'Bearer ': " + authHeader.substring(0, Math.min(20, authHeader.length())));
             }
         }
 

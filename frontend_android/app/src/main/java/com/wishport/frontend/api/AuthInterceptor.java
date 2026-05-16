@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -54,10 +55,14 @@ public class AuthInterceptor implements Interceptor {
         // 2. AÑADIR TOKEN: Lectura lazy con cache para evitar bloqueos de Keystore
         String token = obtenerTokenLazy();
         Request request = original;
+        Log.d("AuthInterceptor", "Token leído: " + (token != null ? "SÍ (" + token.substring(0, Math.min(10, token.length())) + "...)" : "NO"));
         if (token != null) {
             request = original.newBuilder()
                     .header("Authorization", "Bearer " + token)
                     .build();
+            Log.d("AuthInterceptor", "Header Authorization añadido a: " + path);
+        } else {
+            Log.w("AuthInterceptor", "NO se añadió token - petición irá sin autorización: " + path);
         }
 
         // 3. ENVIAR Y REVISAR RESPUESTA

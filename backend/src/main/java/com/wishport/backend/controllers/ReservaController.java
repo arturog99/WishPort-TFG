@@ -178,9 +178,12 @@ public class ReservaController {
         // Sobrescribimos el idUsuario con el del token (seguridad: evita asignar reservas a otro usuario)
         reserva.setIdUsuario(new Usuario(idUsuarioToken));
 
-        // Verificar que la pista no esté en mantenimiento
+        // Verificar que la pista exista y no esté en mantenimiento
         Pista pista = pistaRepository.findById(reserva.getIdPista().getIdPista()).orElse(null);
-        if (pista != null && "mantenimiento".equalsIgnoreCase(pista.getEstado())) {
+        if (pista == null) {
+            return error(HttpStatus.NOT_FOUND, "PISTA_NO_ENCONTRADA", "La pista seleccionada no existe en el sistema.");
+        }
+        if ("mantenimiento".equalsIgnoreCase(pista.getEstado())) {
             return error(HttpStatus.FORBIDDEN, "PISTA_EN_MANTENIMIENTO", "Esta pista está en mantenimiento y no se puede reservar.");
         }
 
