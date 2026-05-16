@@ -13,6 +13,8 @@ import androidx.security.crypto.MasterKeys;
 public class TokenManager {
     private static final String PREF_NAME = "WishPortSecureStorage";
     private static final String KEY_TOKEN = "jwt_token";
+    private static final String KEY_LOGIN_TIME = "login_timestamp";
+    private static final long SESSION_DURATION_MS = 3600000; // 1 hora en milisegundos
     private static String cachedToken = null;
 
     private static SharedPreferences getPrefs(Context context) {
@@ -38,11 +40,23 @@ public class TokenManager {
     public static void setToken(Context context, String jwt) {
         cachedToken = jwt;
         try {
-            getPrefs(context).edit().putString(KEY_TOKEN, jwt).apply();
+            long now = System.currentTimeMillis();
+            getPrefs(context).edit()
+                    .putString(KEY_TOKEN, jwt)
+                    .putLong(KEY_LOGIN_TIME, now)
+                    .apply();
+            Log.d("TokenManager", "Token guardado. Sesión iniciada a las: " + now);
         } catch (Exception ignored) {}
     }
 
     public static String getToken(Context context) {
+        // Verificar si la sesión ha expirado (1 hora)
+        if (isSessionExpired(context)) {
+            Log.w("TokenManager", "Sesión expirada (más de 1 hora). Cerrando sesión...");
+            clear(context);
+            return null;
+        }
+
         if (cachedToken == null && context != null) {
             try {
                 cachedToken = getPrefs(context).getString(KEY_TOKEN, null);
@@ -53,6 +67,37 @@ public class TokenManager {
         return cachedToken;
     }
 
+    /**
+     * Verifica si la sesión ha expirado (más de 1 hora desde el login).
+     */
+    public static boolean isSessionExpired(Context context) {
+        try {
+            long loginTime = getPrefs(context).getLong(KEY_LOGIN_TIME, 0);
+            if (loginTime == 0) {
+                return true; // No hay registro de login = expirado
+            }
+            long elapsed = System.currentTimeMillis() - loginTime;
+            return elapsed > SESSION_DURATION_MS;
+        } catch (Exception e) {
+            return true; // Si hay error, consideramos expirado
+        }
+    }
+
+    /**
+     * Devuelve los milisegundos restantes de sesión (0 si expiró).
+     */
+    public static long getRemainingTimeMs(Context context) {
+        try {
+            long loginTime = getPrefs(context).getLong(KEY_LOGIN_TIME, 0);
+            if (loginTime == 0) return 0;
+            long elapsed = System.currentTimeMillis() - loginTime;
+            long remaining = SESSION_DURATION_MS - elapsed;
+            return Math.max(0, remaining);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     public static String getToken() {
         return cachedToken;
     }
@@ -60,7 +105,11 @@ public class TokenManager {
     public static void clear(Context context) {
         cachedToken = null;
         try {
-            getPrefs(context).edit().remove(KEY_TOKEN).apply();
+            getPrefs(context).edit()
+                    .remove(KEY_TOKEN)
+                    .remove(KEY_LOGIN_TIME)
+                    .apply();
+            Log.d("TokenManager", "Sesión cerrada. Token y timestamp eliminados.");
         } catch (Exception ignored) {}
     }
 }

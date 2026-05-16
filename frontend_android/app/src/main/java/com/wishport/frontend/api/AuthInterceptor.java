@@ -79,6 +79,7 @@ public class AuthInterceptor implements Interceptor {
     /**
      * Obtiene el token de forma lazy con cache y timeout de seguridad.
      * Esto evita que EncryptedSharedPreferences bloquee el hilo de red.
+     * Si la sesión expiró (>1 hora), fuerza el cierre de sesión automáticamente.
      */
     private String obtenerTokenLazy() {
         // Si tenemos cache válida, usarla inmediatamente
@@ -90,8 +91,16 @@ public class AuthInterceptor implements Interceptor {
         // Intentar leer con timeout de seguridad (máximo 500ms)
         // Si tarda más, devolver cache anterior o null y reintentar en la próxima petición
         try {
-            // Usar el método estático que ya tiene cache interno
+            // Usar el método estático que ya tiene cache interno y verifica expiración
             String token = TokenManager.getToken(context);
+
+            // Si getToken devuelve null, puede ser porque la sesión expiró
+            if (token == null && TokenManager.isSessionExpired(context)) {
+                Log.w("AuthInterceptor", "Sesión expirada detectada (>1 hora). Forzando logout...");
+                hacerLogoutForzoso();
+                return null;
+            }
+
             if (token != null) {
                 cachedToken = token;
                 lastTokenRead = System.currentTimeMillis();
@@ -105,14 +114,16 @@ public class AuthInterceptor implements Interceptor {
 
     /**
      * Borra los datos locales y manda al usuario a la pantalla de Login.
+     * Se ejecuta automáticamente cuando la sesión expira (>1 hora) o cuando
+     * el servidor rechaza el token (401).
      */
     private void hacerLogoutForzoso() {
         TokenManager.clear(context);
-        
+
         // Usamos un Handler porque los cambios visuales deben hacerse en el "hilo principal"
         new Handler(Looper.getMainLooper()).post(() -> {
-            Toast.makeText(context, "Tu sesión ha caducado. Entra de nuevo.", Toast.LENGTH_LONG).show();
-            
+            Toast.makeText(context, "Sesión expirada (1 hora máx). Inicia sesión de nuevo.", Toast.LENGTH_LONG).show();
+
             Intent intent = new Intent(context, LoginActivity.class);
             // Estas banderas borran todas las pantallas abiertas y dejan solo el Login
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
